@@ -1,0 +1,22 @@
+# Reference material and planning notes stay local
+reference shots/
+*.md
+!README.md
+
+# Tooling
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and secrets
+*.log
+.env
+.env.*
+!.env.example
+# Old nested repo kept as a backup
+.git-nested-backup/
