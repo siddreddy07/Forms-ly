@@ -1,4 +1,4 @@
-﻿import { ArrowLeftIcon } from "lucide-react"
+import { ArrowLeftIcon } from "lucide-react"
 import Link from "next/link"
 
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +11,7 @@ const statusLabel: Record<FormStatus, string> = {
   closed: "Closed",
 }
 
-function WorkspaceHeader({ title, status }: { title: string; status: FormStatus }) {
+function WorkspaceHeader({ formId, title, status }: { formId: string; title: string; status: FormStatus }) {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur-xl lg:border-b-0">
       <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-2 px-3 sm:px-6">
@@ -27,14 +27,14 @@ function WorkspaceHeader({ title, status }: { title: string; status: FormStatus 
           {statusLabel[status]}
         </Badge>
         <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <button
-            type="button"
-            disabled
+          <Link
+            href={`/f/${formId}`}
+            target="_blank"
+            rel="noreferrer"
             className={buttonVariants({ variant: "outline", size: "default" })}
-            title="Available once the builder exists"
           >
             Preview
-          </button>
+          </Link>
           <button
             type="button"
             disabled

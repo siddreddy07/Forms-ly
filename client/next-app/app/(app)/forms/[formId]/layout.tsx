@@ -15,7 +15,7 @@ export default async function WorkspaceLayout({
 
   return (
     <div className="flex min-h-svh flex-col">
-      <WorkspaceHeader title={form?.title ?? "Untitled form"} status={form?.status ?? "draft"} />
+      <WorkspaceHeader formId={formId} title={form?.title ?? "Untitled form"} status={form?.status ?? "draft"} />
       <WorkspaceTabs formId={formId} />
       <main className="flex-1 pb-20 lg:pb-0">{children}</main>
       <WorkspaceBottomBar formId={formId} />

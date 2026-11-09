@@ -82,11 +82,11 @@ export type ValidationResult =
   | { success: false; errors: Record<string, string> }
 
 /* Validates only blocks that are visible for these answers, the same rule the server will apply. */
-export function validateAnswers(form: FormDocument, answers: Answers): ValidationResult {
+export function validateBlocks(blocks: Block[], answers: Answers): ValidationResult {
   const errors: Record<string, string> = {}
   const data: Answers = {}
 
-  for (const block of form.steps.flatMap((s) => s.blocks)) {
+  for (const block of blocks) {
     if (!isAnswerBlock(block.type) || !isBlockVisible(block, answers)) continue
     const value = answers[block.id]
 
@@ -100,4 +100,8 @@ export function validateAnswers(form: FormDocument, answers: Answers): Validatio
   }
 
   return Object.keys(errors).length ? { success: false, errors } : { success: true, data }
+}
+
+export function validateAnswers(form: FormDocument, answers: Answers): ValidationResult {
+  return validateBlocks(form.steps.flatMap((s) => s.blocks), answers)
 }
