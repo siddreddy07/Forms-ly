@@ -229,7 +229,15 @@ export function createBuilderStore(initial: FormDocument) {
             set({ doc: { ...doc, header: undefined }, selectedId: null })
             return
           }
-          const steps = doc.steps.map((s) => ({ ...s, blocks: s.blocks.filter((b) => b.id !== id) }))
+          /* Rules that depended on the deleted field would point at nothing, so drop those conditions. */
+          const clean = (b: Block): Block => {
+            if (!b.logic) return b
+            const logic = b.logic
+              .map((r) => ({ ...r, when: { ...r.when, conditions: r.when.conditions.filter((c) => c.blockId !== id) } }))
+              .filter((r) => r.when.conditions.length > 0)
+            return { ...b, logic: logic.length ? logic : undefined }
+          }
+          const steps = doc.steps.map((s) => ({ ...s, blocks: s.blocks.filter((b) => b.id !== id).map(clean) }))
           set({ doc: { ...doc, steps }, selectedId: null })
         },
       }),

@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, CircleDotIcon, CloudOffIcon, CopyIcon, HardDriveIcon, Loader2Icon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
+import { CheckIcon, CircleDotIcon, CloudOffIcon, CopyIcon, EyeIcon, HardDriveIcon, Loader2Icon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
 
 import { BlockLibrary } from "@/components/builder/block-library"
 import { BuilderProvider, useBuilder, useHistory } from "@/components/builder/builder-context"
 import { Canvas } from "@/components/builder/canvas"
 import { Hint } from "@/components/builder/hint"
 import { BuilderDnd } from "@/components/builder/dnd"
+import { PreviewPane } from "@/components/builder/preview"
 import { PersistenceProvider, useSave } from "@/components/builder/persistence"
 import { PropertiesPanel } from "@/components/builder/properties-panel"
 import { Button } from "@/components/ui/button"
@@ -23,13 +24,13 @@ function isTyping(target: EventTarget | null) {
   )
 }
 
-const saveLabel = { saved: "Saved", dirty: "Unsaved changes", drafted: "Draft kept on this device", saving: "Saving", error: "Not saved" } as const
+const saveLabel = { saved: "All changes saved", dirty: "Unsaved changes", drafted: "Not saved yet", saving: "Saving...", error: "Couldn't save" } as const
 const saveHint = {
-  saved: "Everything is saved to the server.",
-  dirty: "Backing up your changes on this device.",
-  drafted: "Backed up on this device. Press Save to send it to the server.",
-  saving: "Sending the form to the server.",
-  error: "The server did not accept the save. Your changes are kept on this device.",
+  saved: "Everything you've done is saved.",
+  dirty: "You have changes that aren't saved yet.",
+  drafted: "Your changes are safe for now. Click Save to keep them.",
+  saving: "Saving your form...",
+  error: "Check your internet connection, then click Save again. Your changes are still here.",
 } as const
 
 function SaveControls() {
@@ -40,10 +41,10 @@ function SaveControls() {
       <Hint title={saveLabel[status]} description={saveHint[status]}>
         <span role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Icon className={cn("size-4", status === "saving" && "animate-spin")} aria-hidden="true" />
-          <span className="max-sm:sr-only">{backupFailed ? "Not backed up on this device" : saveLabel[status]}</span>
+          <span className="max-sm:sr-only">{backupFailed ? "Close this page and you may lose changes" : saveLabel[status]}</span>
         </span>
       </Hint>
-      <Hint title="Save" description="Sends the whole form to the server." shortcut="Ctrl S">
+      <Hint title="Save" description="Keep your changes." shortcut="Ctrl S">
         <Button size="sm" onClick={save} disabled={status === "saved" || status === "saving"}>
           Save
         </Button>
@@ -52,7 +53,7 @@ function SaveControls() {
   )
 }
 
-function Toolbar() {
+function Toolbar({ onPreview }: { onPreview: () => void }) {
   const { canUndo, canRedo, undo, redo } = useHistory()
   const picked = useBuilder((s) => s.selectedId)
   const selectedId = picked === HEADER_ID ? null : picked
@@ -83,6 +84,12 @@ function Toolbar() {
           <Trash2Icon />
         </Button>
       </Hint>
+      <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+      <Hint title="Preview" description="Try the form as a visitor would. Nothing is sent." shortcut="P">
+        <Button variant="ghost" size="icon" className={btn} onClick={onPreview} aria-label="Preview form">
+          <EyeIcon />
+        </Button>
+      </Hint>
       <SaveControls />
     </div>
   )
@@ -99,10 +106,20 @@ function BuilderShell() {
   const moveBlock = useBuilder((s) => s.moveBlock)
   const hasSelection = useBuilder((s) => s.selectedId === HEADER_ID || s.doc.steps.some((st) => st.blocks.some((b) => b.id === s.selectedId)))
   const [libraryOpen, setLibraryOpen] = React.useState(false)
+  const [previewing, setPreviewing] = React.useState(false)
 
   React.useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (isTyping(e.target)) return
+      if (previewing) {
+        if (e.key === "Escape") setPreviewing(false)
+        return
+      }
+      if (e.key.toLowerCase() === "p" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault()
+        setPreviewing(true)
+        return
+      }
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault()
@@ -124,7 +141,9 @@ function BuilderShell() {
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [undo, redo, selectedId, picked, deleteBlock, duplicateBlock, moveBlock])
+  }, [undo, redo, selectedId, picked, deleteBlock, duplicateBlock, moveBlock, previewing])
+
+  if (previewing) return <PreviewPane onExit={() => setPreviewing(false)} />
 
   return (
     <div className="lg:grid lg:h-[calc(100svh-6.5rem)] lg:grid-cols-[15rem_minmax(0,1fr)_18rem]">
@@ -133,7 +152,7 @@ function BuilderShell() {
       </aside>
 
       <div className="min-w-0 lg:overflow-y-auto">
-        <Toolbar />
+        <Toolbar onPreview={() => setPreviewing(true)} />
         <div className={cn("bg-muted/40 px-3 py-4 pb-28 max-lg:min-h-[calc(100svh-7.5rem)] sm:px-6 sm:py-8 lg:min-h-[calc(100%-3.25rem)] lg:pb-8", hasSelection && "max-lg:pb-[46svh]")}>
           <Canvas />
         </div>

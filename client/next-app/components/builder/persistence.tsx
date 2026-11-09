@@ -149,7 +149,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
       setConflict(res.server)
     } else {
       setStatusBoth("error")
-      toast.error("Could not save. Your changes are kept on this device.", { action: { label: "Retry", onClick: () => saveRef.current() } })
+      toast.error("Couldn't save. Check your connection and try again. Your changes are still here.", { action: { label: "Retry", onClick: () => saveRef.current() } })
     }
   }, [store, formId, initial, flush, setStatusBoth])
 
@@ -218,10 +218,10 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
       <Dialog open={!!restore} onOpenChange={() => {}}>
         <DialogContent showCloseButton={false} className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Recent changes were not saved</DialogTitle>
+            <DialogTitle>You have changes that weren&apos;t saved</DialogTitle>
             <DialogDescription>
-              You last edited this form {restore ? timeAgo(restore.draft.savedAt) : ""}, but never pressed Save. These changes exist only on this device.
-              {restore?.newerOnServer ? " A newer version has been saved since, and restoring will replace it when you save." : ""}
+              You made these changes {restore ? timeAgo(restore.draft.savedAt) : ""} but didn&apos;t click Save. Do you want to bring them back?
+              {restore?.newerOnServer ? " Note: the form was updated after that, and your changes will replace the newer version when you save." : ""}
             </DialogDescription>
           </DialogHeader>
           <ul className="mx-4 mb-2 grid gap-1 rounded-lg border bg-muted/40 p-3 text-sm sm:mx-6">
@@ -241,9 +241,9 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
       <Dialog open={!!conflict} onOpenChange={(o) => !o && setConflict(null)}>
         <DialogContent showCloseButton={false} className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>A newer version exists</DialogTitle>
+            <DialogTitle>This form was updated elsewhere</DialogTitle>
             <DialogDescription>
-              Someone saved this form after you opened it, maybe in another tab. Overwriting replaces their version with yours.
+              A newer version was saved after you opened this page, maybe by a teammate or in another tab. You can load that version, or replace it with yours.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex-row flex-wrap justify-end gap-2">
@@ -251,9 +251,9 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
               Cancel
             </Button>
             <Button variant="outline" onClick={takeLatest}>
-              Use latest
+              Load their version
             </Button>
-            <Button onClick={overwrite}>Overwrite</Button>
+            <Button onClick={overwrite}>Replace with mine</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

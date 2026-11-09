@@ -8,7 +8,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { GripVerticalIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { EyeOffIcon, GripVerticalIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
 import { useBuilder } from "@/components/builder/builder-context"
 import { stepZoneId, useDropHint } from "@/components/builder/dnd"
@@ -96,6 +96,12 @@ function SortableBlock({
         >
           <GripVerticalIcon className="size-4" />
         </button>
+        {block.logic?.length ? (
+          <span className="absolute top-1 right-1 z-10 inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground">
+            <EyeOffIcon className="size-3" aria-hidden="true" />
+            Conditional
+          </span>
+        ) : null}
         <div inert className="pointer-events-none">
           <BlockField
             block={block}
@@ -208,7 +214,10 @@ function Canvas() {
           )}
           <StepZone id={step.id} label={step.title ?? `Step ${i + 1}`}>
             {paged && (
-              <div className="mb-4 grid gap-2" onClick={(e) => e.stopPropagation()}>
+              <div
+                className="mb-4 grid gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center gap-1.5">
                   <span className="shrink-0 text-xs font-medium text-muted-foreground">
                     {i + 1}/{doc.steps.length}
@@ -216,13 +225,25 @@ function Canvas() {
                   <Input
                     aria-label={`Name of step ${i + 1}`}
                     value={step.title ?? ""}
-                    onChange={(e) => updateStep(step.id, { title: e.target.value || undefined })}
+                    onChange={(e) =>
+                      updateStep(step.id, {
+                        title: e.target.value || undefined,
+                      })
+                    }
                     placeholder="Step name"
                     className="h-8 min-w-0 flex-1 rounded-lg text-sm"
                   />
                   {i > 0 && (
-                    <Hint title="Remove page break" description="Merges this page into the one above.">
-                      <button type="button" aria-label="Remove page break" onClick={() => removePageBreak(step.id)} className={stepBtn}>
+                    <Hint
+                      title="Remove page break"
+                      description="Merges this page into the one above."
+                    >
+                      <button
+                        type="button"
+                        aria-label="Remove page break"
+                        onClick={() => removePageBreak(step.id)}
+                        className={stepBtn}
+                      >
                         <Trash2Icon className="size-4" />
                       </button>
                     </Hint>
@@ -231,14 +252,22 @@ function Canvas() {
                 <Input
                   aria-label={`Heading of step ${i + 1}`}
                   value={step.heading ?? ""}
-                  onChange={(e) => updateStep(step.id, { heading: e.target.value || undefined })}
+                  onChange={(e) =>
+                    updateStep(step.id, {
+                      heading: e.target.value || undefined,
+                    })
+                  }
                   placeholder="Heading"
                   className="h-10 rounded-lg font-display text-lg"
                 />
                 <Textarea
                   aria-label={`Paragraph of step ${i + 1}`}
                   value={step.description ?? ""}
-                  onChange={(e) => updateStep(step.id, { description: e.target.value || undefined })}
+                  onChange={(e) =>
+                    updateStep(step.id, {
+                      description: e.target.value || undefined,
+                    })
+                  }
                   placeholder="Paragraph: a short note about this page"
                   rows={2}
                   className="min-h-0 rounded-lg text-sm"

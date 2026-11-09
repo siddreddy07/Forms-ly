@@ -1,7 +1,6 @@
 ﻿import {
   BarChart3Icon,
   InboxIcon,
-  PaletteIcon,
   PencilRulerIcon,
   Settings2Icon,
   Share2Icon,
@@ -16,7 +15,6 @@ export type WorkspaceTab = {
 
 export const workspaceTabs: WorkspaceTab[] = [
   { slug: "build", label: "Build", icon: PencilRulerIcon },
-  { slug: "design", label: "Design", icon: PaletteIcon },
   { slug: "share", label: "Share", icon: Share2Icon },
   { slug: "responses", label: "Responses", icon: InboxIcon },
   { slug: "analytics", label: "Analytics", icon: BarChart3Icon },

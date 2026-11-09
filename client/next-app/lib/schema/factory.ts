@@ -25,7 +25,7 @@ export function createStep(title?: string, blocks: Block[] = []): Step {
 }
 
 export function createEmptyForm(): FormDocument {
-  return { version: SCHEMA_VERSION, mode: "single", steps: [createStep()] }
+  return { version: SCHEMA_VERSION, mode: "single", header: {}, steps: [createStep()] }
 }
 
 export function allBlocks(form: FormDocument): Block[] {

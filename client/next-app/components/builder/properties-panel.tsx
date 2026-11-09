@@ -4,6 +4,7 @@ import * as React from "react"
 import { LayoutTemplateIcon, MousePointerClickIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import { blockIcons } from "@/components/builder/block-icons"
+import { LogicEditor } from "@/components/builder/logic-editor"
 import { HEADER_ID } from "@/lib/builder/store"
 import { useBuilder } from "@/components/builder/builder-context"
 import { Input } from "@/components/ui/input"
@@ -352,6 +353,7 @@ function PropertiesPanel({ onClose, onDelete, compact = false }: { onClose?: () 
 
     </>
   )
+  const logicNode = <LogicEditor block={block} />
   const widthNode = (
     <>
       {supportsWidth(block.type) && (
@@ -396,6 +398,7 @@ function PropertiesPanel({ onClose, onDelete, compact = false }: { onClose?: () 
         {hasWidth && widthNode}
         {content}
         {details}
+        <Section title="Show or hide">{logicNode}</Section>
       </div>
     )
   }
@@ -405,6 +408,7 @@ function PropertiesPanel({ onClose, onDelete, compact = false }: { onClose?: () 
     { id: "content", label: "Content", node: content },
     ...(hasDetails ? [{ id: "details", label: choiceTypes.includes(block.type) ? "Options" : "Limits", node: details }] : []),
     ...(hasWidth ? [{ id: "width", label: "Width", node: widthNode }] : []),
+    { id: "logic", label: "Logic", node: logicNode },
   ]
   const active = tabs.find((x) => x.id === tab) ?? tabs[0]
   const iconBtn = "inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring"
