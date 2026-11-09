@@ -1,0 +1,262 @@
+"use client"
+
+import * as React from "react"
+import { toast } from "sonner"
+
+import { useBuilderStore } from "@/components/builder/builder-context"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { readServerRecord, saveToServer, type ServerRecord } from "@/lib/api/mock-server"
+import { clearDraft, readDraft, summarizeChanges, writeDraft, type Draft } from "@/lib/builder/draft"
+import { timeAgo } from "@/lib/time"
+import type { FormDocument } from "@/lib/schema"
+
+/* dirty: edited, local backup pending. drafted: backed up on this device, not on the server. */
+export type SaveStatus = "saved" | "dirty" | "drafted" | "saving" | "error"
+
+type Persistence = {
+  status: SaveStatus
+  /* ISO time of the last successful save, if any. */
+  savedAt: string | null
+  /* True when the browser refused to keep a local backup. */
+  backupFailed: boolean
+  save: () => void
+}
+
+const Ctx = React.createContext<Persistence | null>(null)
+
+export function useSave() {
+  const v = React.useContext(Ctx)
+  if (!v) throw new Error("useSave must be used inside PersistenceProvider")
+  return v
+}
+
+const DEBOUNCE_MS = 800
+const MAX_WAIT_MS = 5000
+
+const sameDoc = (a: FormDocument, b: FormDocument) => JSON.stringify(a) === JSON.stringify(b)
+
+/* Keeps a local backup while you edit, and sends the whole form to the backend on Save.
+   The editor always works from memory; the backup is only read once, when the builder opens. */
+export function PersistenceProvider({ formId, initial, children }: { formId: string; initial: FormDocument; children: React.ReactNode }) {
+  const store = useBuilderStore()
+  const [status, setStatus] = React.useState<SaveStatus>("saved")
+  const [savedAt, setSavedAt] = React.useState<string | null>(null)
+  const [backupFailed, setBackupFailed] = React.useState(false)
+  const [restore, setRestore] = React.useState<{ draft: Draft; newerOnServer: boolean; changes: string[] } | null>(null)
+  const [conflict, setConflict] = React.useState<ServerRecord | null>(null)
+
+  const baseVersion = React.useRef(1)
+  const savedDoc = React.useRef<FormDocument>(initial)
+  const ready = React.useRef(false)
+  const restoring = React.useRef(false)
+  const saving = React.useRef(false)
+  const statusRef = React.useRef<SaveStatus>("saved")
+  const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const maxTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveRef = React.useRef<() => void>(() => {})
+
+  const setStatusBoth = React.useCallback((s: SaveStatus) => {
+    statusRef.current = s
+    setStatus(s)
+  }, [])
+
+  /* Replace what is on screen, e.g. after restoring a backup or loading the latest copy. */
+  const loadDoc = React.useCallback(
+    (doc: FormDocument) => {
+      store.getState().loadDocument(doc)
+      store.temporal.getState().clear()
+    },
+    [store]
+  )
+
+  const flush = React.useCallback(() => {
+    if (timer.current) clearTimeout(timer.current)
+    if (maxTimer.current) clearTimeout(maxTimer.current)
+    timer.current = null
+    maxTimer.current = null
+    if (!ready.current || restoring.current) return
+    const doc = store.getState().doc
+    const ok = writeDraft(formId, { doc, baseVersion: baseVersion.current, savedAt: new Date().toISOString(), dirty: doc !== savedDoc.current })
+    setBackupFailed(!ok)
+    if (ok && doc !== savedDoc.current && statusRef.current === "dirty") setStatusBoth("drafted")
+  }, [store, formId, setStatusBoth])
+
+  const schedule = React.useCallback(() => {
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(flush, DEBOUNCE_MS)
+    if (!maxTimer.current) maxTimer.current = setTimeout(flush, MAX_WAIT_MS)
+  }, [flush])
+
+  /* On open: pick up the latest saved copy, then offer any unsaved backup. */
+  React.useEffect(() => {
+    /* Browser storage can only be read after mount, so state is set here on purpose. */
+    /* eslint-disable react-hooks/set-state-in-effect */
+    const server = readServerRecord(formId, initial)
+    baseVersion.current = server.version
+    if (server.version > 1) loadDoc(server.doc)
+    savedDoc.current = store.getState().doc
+    setSavedAt(server.updatedAt)
+
+    const draft = readDraft(formId)
+    if (draft?.dirty && !sameDoc(draft.doc, savedDoc.current)) {
+      restoring.current = true
+      setRestore({ draft, newerOnServer: draft.baseVersion !== server.version, changes: summarizeChanges(savedDoc.current, draft.doc) })
+    }
+    ready.current = true
+    /* eslint-enable react-hooks/set-state-in-effect */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /* Any change to the form: mark it and schedule a local backup. */
+  React.useEffect(() => {
+    const unsubscribe = store.subscribe((state, prev) => {
+      if (state.doc === prev.doc || !ready.current) return
+      if (statusRef.current !== "saving") setStatusBoth(state.doc === savedDoc.current ? "saved" : "dirty")
+      if (!restoring.current) schedule()
+    })
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush()
+    }
+    document.addEventListener("visibilitychange", onHide)
+    window.addEventListener("pagehide", flush)
+    return () => {
+      unsubscribe()
+      document.removeEventListener("visibilitychange", onHide)
+      window.removeEventListener("pagehide", flush)
+      flush()
+    }
+  }, [store, schedule, flush, setStatusBoth])
+
+  const save = React.useCallback(async () => {
+    if (saving.current) return
+    const doc = store.getState().doc
+    if (doc === savedDoc.current && statusRef.current !== "error") return
+    saving.current = true
+    setStatusBoth("saving")
+    const res = await saveToServer(formId, doc, baseVersion.current, initial)
+    saving.current = false
+
+    if (res.ok) {
+      baseVersion.current = res.version
+      savedDoc.current = doc
+      setSavedAt(res.updatedAt)
+      setStatusBoth(store.getState().doc === doc ? "saved" : "dirty")
+      flush()
+      toast.success("Saved")
+    } else if (res.reason === "conflict") {
+      setStatusBoth("error")
+      setConflict(res.server)
+    } else {
+      setStatusBoth("error")
+      toast.error("Could not save. Your changes are kept on this device.", { action: { label: "Retry", onClick: () => saveRef.current() } })
+    }
+  }, [store, formId, initial, flush, setStatusBoth])
+
+  React.useEffect(() => {
+    saveRef.current = () => void save()
+  }, [save])
+
+  /* Ctrl or Cmd + S, and a warning before leaving with unsaved work. */
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault()
+        void save()
+      }
+    }
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (statusRef.current !== "saved" && statusRef.current !== "drafted") e.preventDefault()
+    }
+    window.addEventListener("keydown", onKey)
+    window.addEventListener("beforeunload", onUnload)
+    return () => {
+      window.removeEventListener("keydown", onKey)
+      window.removeEventListener("beforeunload", onUnload)
+    }
+  }, [save])
+
+  function keepBackup() {
+    if (!restore) return
+    loadDoc(restore.draft.doc)
+    restoring.current = false
+    setRestore(null)
+    setStatusBoth("dirty")
+    flush()
+  }
+
+  function discardBackup() {
+    clearDraft(formId)
+    restoring.current = false
+    setRestore(null)
+  }
+
+  function takeLatest() {
+    if (!conflict) return
+    loadDoc(conflict.doc)
+    baseVersion.current = conflict.version
+    savedDoc.current = store.getState().doc
+    setSavedAt(conflict.updatedAt)
+    setStatusBoth("saved")
+    setConflict(null)
+    flush()
+  }
+
+  function overwrite() {
+    if (!conflict) return
+    baseVersion.current = conflict.version
+    setConflict(null)
+    void save()
+  }
+
+  const value = React.useMemo(() => ({ status, savedAt, backupFailed, save: () => void save() }), [status, savedAt, backupFailed, save])
+
+  return (
+    <Ctx.Provider value={value}>
+      {children}
+
+      <Dialog open={!!restore} onOpenChange={() => {}}>
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Recent changes were not saved</DialogTitle>
+            <DialogDescription>
+              You last edited this form {restore ? timeAgo(restore.draft.savedAt) : ""}, but never pressed Save. These changes exist only on this device.
+              {restore?.newerOnServer ? " A newer version has been saved since, and restoring will replace it when you save." : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="mx-4 mb-2 grid gap-1 rounded-lg border bg-muted/40 p-3 text-sm sm:mx-6">
+            {restore?.changes.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+          <DialogFooter className="flex-row justify-end gap-2">
+            <Button variant="outline" onClick={discardBackup}>
+              Discard changes
+            </Button>
+            <Button onClick={keepBackup}>Restore changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!conflict} onOpenChange={(o) => !o && setConflict(null)}>
+        <DialogContent showCloseButton={false} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>A newer version exists</DialogTitle>
+            <DialogDescription>
+              Someone saved this form after you opened it, maybe in another tab. Overwriting replaces their version with yours.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-row flex-wrap justify-end gap-2">
+            <Button variant="ghost" onClick={() => setConflict(null)}>
+              Cancel
+            </Button>
+            <Button variant="outline" onClick={takeLatest}>
+              Use latest
+            </Button>
+            <Button onClick={overwrite}>Overwrite</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Ctx.Provider>
+  )
+}

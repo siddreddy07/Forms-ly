@@ -23,6 +23,8 @@ export type BuilderActions = {
   duplicateBlock: (id: string) => void
   /* Adds the header at the top once; selects it if it is already there. */
   addHeader: () => void
+  /* Replaces the whole form, used when restoring a backup or loading the latest saved copy. */
+  loadDocument: (doc: FormDocument) => void
   /* A page break splits a page in two. The form is multi-page when it has any break. */
   addPageBreak: () => void
   insertPageBreak: (stepId: string, index: number) => void
@@ -153,6 +155,8 @@ export function createBuilderStore(initial: FormDocument) {
           set({ doc: { ...doc, steps: doc.steps.map((s) => (s.id === id ? { ...s, ...patch } : s)) } })
           editing = false
         },
+
+        loadDocument: (doc) => set({ doc, selectedId: null, activeStepId: doc.steps[0].id }),
 
         addHeader: () => {
           const { doc } = get()

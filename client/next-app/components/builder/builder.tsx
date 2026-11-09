@@ -1,13 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { CopyIcon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
+import { CheckIcon, CircleDotIcon, CloudOffIcon, CopyIcon, HardDriveIcon, Loader2Icon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
 
 import { BlockLibrary } from "@/components/builder/block-library"
 import { BuilderProvider, useBuilder, useHistory } from "@/components/builder/builder-context"
 import { Canvas } from "@/components/builder/canvas"
 import { Hint } from "@/components/builder/hint"
 import { BuilderDnd } from "@/components/builder/dnd"
+import { PersistenceProvider, useSave } from "@/components/builder/persistence"
 import { PropertiesPanel } from "@/components/builder/properties-panel"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
@@ -19,6 +20,35 @@ function isTyping(target: EventTarget | null) {
   return (
     target instanceof HTMLElement &&
     (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  )
+}
+
+const saveLabel = { saved: "Saved", dirty: "Unsaved changes", drafted: "Draft kept on this device", saving: "Saving", error: "Not saved" } as const
+const saveHint = {
+  saved: "Everything is saved to the server.",
+  dirty: "Backing up your changes on this device.",
+  drafted: "Backed up on this device. Press Save to send it to the server.",
+  saving: "Sending the form to the server.",
+  error: "The server did not accept the save. Your changes are kept on this device.",
+} as const
+
+function SaveControls() {
+  const { status, backupFailed, save } = useSave()
+  const Icon = { saved: CheckIcon, dirty: CircleDotIcon, drafted: HardDriveIcon, saving: Loader2Icon, error: CloudOffIcon }[status]
+  return (
+    <div className="ml-auto flex items-center gap-2">
+      <Hint title={saveLabel[status]} description={saveHint[status]}>
+        <span role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Icon className={cn("size-4", status === "saving" && "animate-spin")} aria-hidden="true" />
+          <span className="max-sm:sr-only">{backupFailed ? "Not backed up on this device" : saveLabel[status]}</span>
+        </span>
+      </Hint>
+      <Hint title="Save" description="Sends the whole form to the server." shortcut="Ctrl S">
+        <Button size="sm" onClick={save} disabled={status === "saved" || status === "saving"}>
+          Save
+        </Button>
+      </Hint>
+    </div>
   )
 }
 
@@ -53,6 +83,7 @@ function Toolbar() {
           <Trash2Icon />
         </Button>
       </Hint>
+      <SaveControls />
     </div>
   )
 }
@@ -155,12 +186,14 @@ function BuilderShell() {
   )
 }
 
-function Builder({ initial }: { initial: FormDocument }) {
+function Builder({ formId, initial }: { formId: string; initial: FormDocument }) {
   return (
     <BuilderProvider initial={initial}>
-      <BuilderDnd>
-        <BuilderShell />
-      </BuilderDnd>
+      <PersistenceProvider formId={formId} initial={initial}>
+        <BuilderDnd>
+          <BuilderShell />
+        </BuilderDnd>
+      </PersistenceProvider>
     </BuilderProvider>
   )
 }

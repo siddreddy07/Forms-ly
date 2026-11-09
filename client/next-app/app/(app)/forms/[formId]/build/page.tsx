@@ -10,5 +10,5 @@ export default async function BuildPage({ params }: { params: Promise<{ formId: 
   const { formId } = await params
   /* Forms made in the dashboard are not stored yet, so they start blank. */
   const initial = getFormDocument(formId) ?? createEmptyForm()
-  return <Builder initial={initial} />
+  return <Builder formId={formId} initial={initial} />
 }

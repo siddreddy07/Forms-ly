@@ -19,6 +19,10 @@ function useStoreApi() {
   return store
 }
 
+export function useBuilderStore() {
+  return useStoreApi()
+}
+
 export function useBuilder<T>(selector: (s: BuilderState & BuilderActions) => T): T {
   return useStore(useStoreApi(), selector)
 }
