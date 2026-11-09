@@ -1,10 +1,14 @@
 import type { Metadata } from "next"
-import { PencilRulerIcon } from "lucide-react"
 
-import { SectionPlaceholder } from "@/components/workspace/section-placeholder"
+import { Builder } from "@/components/builder/builder"
+import { getFormDocument } from "@/lib/api/mock-schemas"
+import { createEmptyForm } from "@/lib/schema"
 
 export const metadata: Metadata = { title: "Build" }
 
-export default function Page() {
-  return <SectionPlaceholder icon={PencilRulerIcon} title="Build" hint="Drag blocks into place. The builder arrives in the next phase." />
+export default async function BuildPage({ params }: { params: Promise<{ formId: string }> }) {
+  const { formId } = await params
+  /* Forms made in the dashboard are not stored yet, so they start blank. */
+  const initial = getFormDocument(formId) ?? createEmptyForm()
+  return <Builder initial={initial} />
 }
