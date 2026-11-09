@@ -101,9 +101,17 @@ export const stepSchema = z.object({
 
 export const formModeSchema = z.enum(["single", "steps", "one-at-a-time"])
 
+/* Shown once above the first step: a banner, the company or form title, and a short description. */
+export const formHeaderSchema = z.object({
+  banner: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+})
+
 export const formSchemaV1 = z.object({
   version: z.literal(SCHEMA_VERSION),
   mode: formModeSchema.default("single"),
+  header: formHeaderSchema.optional(),
   steps: z.array(stepSchema).min(1),
 })
 
@@ -114,6 +122,7 @@ export type ConditionGroup = z.infer<typeof conditionGroupSchema>
 export type Rule = z.infer<typeof ruleSchema>
 export type Block = z.infer<typeof blockSchema>
 export type Step = z.infer<typeof stepSchema>
+export type FormHeader = z.infer<typeof formHeaderSchema>
 export type FormMode = z.infer<typeof formModeSchema>
 export type FormDocument = z.infer<typeof formSchemaV1>
 

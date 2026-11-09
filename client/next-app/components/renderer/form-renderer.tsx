@@ -4,6 +4,7 @@ import * as React from "react"
 import { CheckCircle2Icon } from "lucide-react"
 
 import { BlockField, spanClass } from "@/components/renderer/field"
+import { FormHeaderView } from "@/components/renderer/form-header"
 import { Button } from "@/components/ui/button"
 import {
   buildScreens,
@@ -138,6 +139,8 @@ function FormRenderer({
 
   return (
     <form ref={root} data-form-renderer noValidate onSubmit={handleSubmit} className="scroll-mt-20">
+      {index === 0 && <FormHeaderView header={form.header} />}
+
       {multi && (
         <div className="mb-6">
           <div className="mb-2 flex items-baseline justify-between text-sm">

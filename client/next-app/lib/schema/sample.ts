@@ -31,6 +31,7 @@ export function createCafeApplication(): FormDocument {
   return {
     version: SCHEMA_VERSION,
     mode: "steps",
+    header: { title: "Join our café team", description: "We are a small neighbourhood café hiring baristas and kitchen staff. Tell us a little about yourself." },
     steps: [createStep("About you", [name, email, shift]), createStep("Experience", [experience, story, cv])],
   }
 }
@@ -39,6 +40,7 @@ export function createClientIntake(): FormDocument {
   return {
     version: SCHEMA_VERSION,
     mode: "single",
+    header: { title: "Start a project with us", description: "A few questions so we can understand your goals, timeline and budget before we talk." },
     steps: [
       createStep("Client intake", [
         createBlock("heading", { content: "Tell us about the project" }),
@@ -77,6 +79,7 @@ export function createWebsiteFeedback(): FormDocument {
   return {
     version: SCHEMA_VERSION,
     mode: "one-at-a-time",
+    header: { title: "How are we doing?", description: "Two minutes of your time helps us improve the site for everyone." },
     steps: [
       createStep(undefined, [
         createBlock("rating", { label: "How was your visit today?", required: true }),

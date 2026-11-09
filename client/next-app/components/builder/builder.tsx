@@ -1,14 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
+import { ArrowDownIcon, ArrowUpIcon, CopyIcon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
 
 import { BlockLibrary } from "@/components/builder/block-library"
 import { BuilderProvider, useBuilder, useHistory } from "@/components/builder/builder-context"
 import { Canvas } from "@/components/builder/canvas"
+import { BuilderDnd } from "@/components/builder/dnd"
 import { PropertiesPanel } from "@/components/builder/properties-panel"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
+import { HEADER_ID } from "@/lib/builder/store"
 import { cn } from "@/lib/utils"
 import type { FormDocument } from "@/lib/schema"
 
@@ -21,8 +23,11 @@ function isTyping(target: EventTarget | null) {
 
 function Toolbar() {
   const { canUndo, canRedo, undo, redo } = useHistory()
-  const selectedId = useBuilder((s) => s.selectedId)
+  const picked = useBuilder((s) => s.selectedId)
+  const selectedId = picked === HEADER_ID ? null : picked
   const deleteBlock = useBuilder((s) => s.deleteBlock)
+  const duplicateBlock = useBuilder((s) => s.duplicateBlock)
+  const moveBlock = useBuilder((s) => s.moveBlock)
   const btn = "size-9"
 
   return (
@@ -34,12 +39,21 @@ function Toolbar() {
         <Redo2Icon />
       </Button>
       <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
+      <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && moveBlock(selectedId, -1)} aria-label="Move up" title="Move up (Alt+Up)">
+        <ArrowUpIcon />
+      </Button>
+      <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && moveBlock(selectedId, 1)} aria-label="Move down" title="Move down (Alt+Down)">
+        <ArrowDownIcon />
+      </Button>
+      <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && duplicateBlock(selectedId)} aria-label="Duplicate block" title="Duplicate (Ctrl+D)">
+        <CopyIcon />
+      </Button>
       <Button
         variant="ghost"
         size="icon"
         className={btn}
-        disabled={!selectedId}
-        onClick={() => selectedId && deleteBlock(selectedId)}
+        disabled={!picked}
+        onClick={() => picked && deleteBlock(picked)}
         aria-label="Delete block"
         title="Delete block (Delete)"
       >
@@ -51,11 +65,14 @@ function Toolbar() {
 
 function BuilderShell() {
   const addBlock = useBuilder((s) => s.addBlock)
-  const selectedId = useBuilder((s) => s.selectedId)
+  const picked = useBuilder((s) => s.selectedId)
+  const selectedId = picked === HEADER_ID ? null : picked
   const deleteBlock = useBuilder((s) => s.deleteBlock)
   const { undo, redo } = useHistory()
   const select = useBuilder((s) => s.select)
-  const hasSelection = useBuilder((s) => s.doc.steps.some((st) => st.blocks.some((b) => b.id === s.selectedId)))
+  const duplicateBlock = useBuilder((s) => s.duplicateBlock)
+  const moveBlock = useBuilder((s) => s.moveBlock)
+  const hasSelection = useBuilder((s) => s.selectedId === HEADER_ID || s.doc.steps.some((st) => st.blocks.some((b) => b.id === s.selectedId)))
   const [libraryOpen, setLibraryOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -69,19 +86,25 @@ function BuilderShell() {
       } else if (mod && e.key.toLowerCase() === "y") {
         e.preventDefault()
         redo()
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedId) {
+      } else if (mod && e.key.toLowerCase() === "d" && selectedId) {
         e.preventDefault()
-        deleteBlock(selectedId)
+        duplicateBlock(selectedId)
+      } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown") && selectedId) {
+        e.preventDefault()
+        moveBlock(selectedId, e.key === "ArrowUp" ? -1 : 1)
+      } else if ((e.key === "Delete" || e.key === "Backspace") && picked) {
+        e.preventDefault()
+        deleteBlock(picked)
       }
     }
     window.addEventListener("keydown", onKey)
     return () => window.removeEventListener("keydown", onKey)
-  }, [undo, redo, selectedId, deleteBlock])
+  }, [undo, redo, selectedId, picked, deleteBlock, duplicateBlock, moveBlock])
 
   return (
     <div className="lg:grid lg:h-[calc(100svh-6.5rem)] lg:grid-cols-[15rem_minmax(0,1fr)_18rem]">
       <aside aria-label="Blocks" className="hidden overflow-y-auto border-r lg:block">
-        <BlockLibrary onPick={addBlock} />
+        <BlockLibrary onPick={addBlock} draggable />
       </aside>
 
       <div className="min-w-0 lg:overflow-y-auto">
@@ -92,7 +115,7 @@ function BuilderShell() {
       </div>
 
       <aside aria-label="Properties" className="hidden overflow-y-auto border-l lg:block">
-        <PropertiesPanel />
+        <PropertiesPanel onDelete={() => picked && deleteBlock(picked)} />
       </aside>
 
       {/* Phones and tablets: editing panel docks above the tab bar so the canvas stays visible */}
@@ -106,7 +129,7 @@ function BuilderShell() {
           hasSelection ? "translate-y-0" : "invisible translate-y-full"
         )}
       >
-        <PropertiesPanel compact onClose={() => select(null)} onDelete={() => selectedId && deleteBlock(selectedId)} />
+        <PropertiesPanel compact onClose={() => select(null)} onDelete={() => picked && deleteBlock(picked)} />
       </div>
 
       {/* Add button floats above the bottom tab bar */}
@@ -125,6 +148,7 @@ function BuilderShell() {
           <div aria-hidden="true" className="mx-auto mt-2.5 h-1 w-9 shrink-0 rounded-full bg-border" />
           <div className="overflow-y-auto pb-[env(safe-area-inset-bottom)]">
             <BlockLibrary
+              onHeader={() => setLibraryOpen(false)}
               onPick={(t) => {
                 addBlock(t)
                 setLibraryOpen(false)
@@ -140,7 +164,9 @@ function BuilderShell() {
 function Builder({ initial }: { initial: FormDocument }) {
   return (
     <BuilderProvider initial={initial}>
-      <BuilderShell />
+      <BuilderDnd>
+        <BuilderShell />
+      </BuilderDnd>
     </BuilderProvider>
   )
 }

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { ImageIcon } from "lucide-react"
 
 import {
   CheckboxCards,
@@ -50,8 +51,11 @@ export function BlockField({
   value,
   error,
   onChange,
+  editing = false,
 }: {
   block: Block
+  /* In the builder an empty image shows a placeholder banner; the live form shows nothing. */
+  editing?: boolean
   value: AnswerValue
   error?: string
   onChange: (value: AnswerValue) => void
@@ -67,8 +71,16 @@ export function BlockField({
     return <hr className="my-1 border-border" />
   }
   if (block.type === "image") {
+    if (!block.content) {
+      return editing ? (
+        <div className="flex aspect-[3/1] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/60 text-muted-foreground">
+          <ImageIcon className="size-7" aria-hidden="true" />
+          <span className="text-xs">Add an image address</span>
+        </div>
+      ) : null
+    }
     /* eslint-disable-next-line @next/next/no-img-element */
-    return block.content ? <img src={block.content} alt={block.alt ?? ""} className="w-full rounded-lg" /> : null
+    return <img src={block.content} alt={block.alt ?? ""} className="aspect-[3/1] w-full rounded-lg object-cover" />
   }
 
   const id = `f-${block.id}`

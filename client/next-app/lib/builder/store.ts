@@ -1,7 +1,10 @@
 import { temporal } from "zundo"
 import { createStore } from "zustand/vanilla"
 
-import { createBlock, type Block, type BlockType, type FormDocument } from "@/lib/schema"
+import { createBlock, createOption, type Block, type FormHeader, type BlockType, type FormDocument } from "@/lib/schema"
+
+/* The form header card is selectable like a block but is not one. */
+export const HEADER_ID = "form-header"
 
 export type BuilderState = {
   doc: FormDocument
@@ -15,6 +18,16 @@ export type BuilderActions = {
   deleteBlock: (id: string) => void
   /* Typing bursts are merged into a single undo step. */
   updateBlock: (id: string, patch: Partial<Block>) => void
+  duplicateBlock: (id: string) => void
+  /* Adds the header at the top once; selects it if it is already there. */
+  addHeader: () => void
+  updateHeader: (patch: Partial<FormHeader>) => void
+  /* Adds a new block at an exact place, used by drag from the library. */
+  insertBlock: (type: BlockType, stepId: string, index: number) => void
+  /* Moves one place up or down, crossing into the neighbouring step at the edges. */
+  moveBlock: (id: string, dir: -1 | 1) => void
+  /* Drag and drop: reorder inside one step. */
+  reorderBlock: (stepId: string, fromId: string, toId: string) => void
 }
 
 export type BuilderStore = ReturnType<typeof createBuilderStore>
@@ -47,6 +60,10 @@ export function createBuilderStore(initial: FormDocument) {
             stepIndex = selStep
             at = doc.steps[selStep].blocks.findIndex((b) => b.id === selectedId) + 1
           }
+          if (selectedId === HEADER_ID) {
+            stepIndex = 0
+            at = 0
+          }
           if (stepIndex < 0) stepIndex = 0
 
           const steps = doc.steps.map((s, i) => {
@@ -69,8 +86,89 @@ export function createBuilderStore(initial: FormDocument) {
           editing = false
         },
 
+        insertBlock: (type, stepId, index) => {
+          const { doc } = get()
+          const block = createBlock(type)
+          const steps = doc.steps.map((s) => {
+            if (s.id !== stepId) return s
+            const blocks = [...s.blocks]
+            blocks.splice(Math.max(0, Math.min(index, blocks.length)), 0, block)
+            return { ...s, blocks }
+          })
+          set({ doc: { ...doc, steps }, selectedId: block.id, activeStepId: stepId })
+        },
+
+        addHeader: () => {
+          const { doc } = get()
+          if (!doc.header) set({ doc: { ...doc, header: {} }, selectedId: HEADER_ID })
+          else set({ selectedId: HEADER_ID })
+        },
+
+        updateHeader: (patch) => {
+          const { doc } = get()
+          editing = true
+          set({ doc: { ...doc, header: { ...doc.header, ...patch } } })
+          editing = false
+        },
+
+        duplicateBlock: (id) => {
+          const { doc } = get()
+          let newId: string | null = null
+          const steps = doc.steps.map((s) => {
+            const i = s.blocks.findIndex((b) => b.id === id)
+            if (i < 0) return s
+            const src = s.blocks[i]
+            const fresh = createBlock(src.type)
+            const copy: Block = { ...src, id: fresh.id, options: src.options?.map((o) => createOption(o.label)) }
+            newId = copy.id
+            const blocks = [...s.blocks]
+            blocks.splice(i + 1, 0, copy)
+            return { ...s, blocks }
+          })
+          if (newId) set({ doc: { ...doc, steps }, selectedId: newId })
+        },
+
+        moveBlock: (id, dir) => {
+          const { doc } = get()
+          const si = doc.steps.findIndex((s) => s.blocks.some((b) => b.id === id))
+          if (si < 0) return
+          const steps = doc.steps.map((s) => ({ ...s, blocks: [...s.blocks] }))
+          const bi = steps[si].blocks.findIndex((b) => b.id === id)
+          const [block] = steps[si].blocks.splice(bi, 1)
+          const to = bi + dir
+          if (to >= 0 && to <= steps[si].blocks.length) {
+            steps[si].blocks.splice(to, 0, block)
+          } else if (dir < 0 && si > 0) {
+            steps[si - 1].blocks.push(block)
+          } else if (dir > 0 && si < steps.length - 1) {
+            steps[si + 1].blocks.unshift(block)
+          } else {
+            return
+          }
+          set({ doc: { ...doc, steps } })
+        },
+
+        reorderBlock: (stepId, fromId, toId) => {
+          const { doc } = get()
+          const steps = doc.steps.map((s) => {
+            if (s.id !== stepId) return s
+            const from = s.blocks.findIndex((b) => b.id === fromId)
+            const to = s.blocks.findIndex((b) => b.id === toId)
+            if (from < 0 || to < 0 || from === to) return s
+            const blocks = [...s.blocks]
+            const [b] = blocks.splice(from, 1)
+            blocks.splice(to, 0, b)
+            return { ...s, blocks }
+          })
+          set({ doc: { ...doc, steps } })
+        },
+
         deleteBlock: (id) => {
           const { doc } = get()
+          if (id === HEADER_ID) {
+            set({ doc: { ...doc, header: undefined }, selectedId: null })
+            return
+          }
           const steps = doc.steps.map((s) => ({ ...s, blocks: s.blocks.filter((b) => b.id !== id) }))
           set({ doc: { ...doc, steps }, selectedId: null })
         },

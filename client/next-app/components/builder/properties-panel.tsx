@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { MousePointerClickIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
+import { LayoutTemplateIcon, MousePointerClickIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
 
 import { blockIcons } from "@/components/builder/block-icons"
+import { HEADER_ID } from "@/lib/builder/store"
 import { useBuilder } from "@/components/builder/builder-context"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
@@ -74,10 +75,74 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
+function HeaderEditor({ compact, onClose, onDelete }: { compact: boolean; onClose?: () => void; onDelete?: () => void }) {
+  const header = useBuilder((s) => s.doc.header)
+  const updateHeader = useBuilder((s) => s.updateHeader)
+  const fields = (
+    <>
+      <Field label="Banner image address" htmlFor="hdr-banner">
+        <Input id="hdr-banner" type="url" value={header?.banner ?? ""} onChange={(e) => updateHeader({ banner: e.target.value || undefined })} placeholder="https://" className={inputClass} />
+      </Field>
+      <Field label="Title" htmlFor="hdr-title">
+        <Input id="hdr-title" value={header?.title ?? ""} onChange={(e) => updateHeader({ title: e.target.value || undefined })} placeholder="Company or form name" className={inputClass} />
+      </Field>
+      <div className={compact ? "grid gap-1.5 md:col-span-2" : "grid gap-1.5"}>
+        <label htmlFor="hdr-desc" className="text-xs font-medium text-muted-foreground">
+          Description
+        </label>
+        <Textarea id="hdr-desc" value={header?.description ?? ""} onChange={(e) => updateHeader({ description: e.target.value || undefined })} rows={compact ? 3 : 5} placeholder="A short note about your company or what this form is for" className="rounded-lg text-sm" />
+      </div>
+    </>
+  )
+  const title = (
+    <div className="flex items-center gap-2">
+      <LayoutTemplateIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      <h2 className="min-w-0 flex-1 truncate text-sm font-medium">Form header</h2>
+    </div>
+  )
+  if (!compact) {
+    return (
+      <div className="grid gap-4 p-4">
+        <div>
+          {title}
+          <p className="mt-0.5 text-xs text-muted-foreground">Shown once at the top, before the first step.</p>
+        </div>
+        {fields}
+        {onDelete && (
+          <button type="button" onClick={onDelete} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border text-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            <Trash2Icon className="size-4" /> Remove header
+          </button>
+        )}
+      </div>
+    )
+  }
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex shrink-0 items-center gap-2 px-3 pt-2 pb-1">
+        <div className="min-w-0 flex-1">{title}</div>
+        {onDelete && (
+          <button type="button" onClick={onDelete} aria-label="Remove header" className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
+            <Trash2Icon className="size-4" />
+          </button>
+        )}
+        {onClose && (
+          <button type="button" onClick={onClose} aria-label="Done editing" className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
+            <XIcon className="size-4" />
+          </button>
+        )}
+      </div>
+      <div className="grid min-h-0 flex-1 content-start gap-3 overflow-y-auto overscroll-contain p-3 pb-4 md:grid-cols-2 md:gap-x-4 [&>*]:min-w-0">{fields}</div>
+    </div>
+  )
+}
+
 function PropertiesPanel({ onClose, onDelete, compact = false }: { onClose?: () => void; onDelete?: () => void; compact?: boolean }) {
   const [tab, setTab] = React.useState("content")
   const block = useBuilder((s) => s.doc.steps.flatMap((st) => st.blocks).find((b) => b.id === s.selectedId))
   const updateBlock = useBuilder((s) => s.updateBlock)
+  const headerSelected = useBuilder((s) => s.selectedId === HEADER_ID)
+
+  if (headerSelected) return <HeaderEditor compact={compact} onClose={onClose} onDelete={onDelete} />
 
   if (!block) {
     return (

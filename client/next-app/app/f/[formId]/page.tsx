@@ -17,7 +17,7 @@ export default async function PublicFormPage({ params }: { params: Promise<{ for
   return (
     <main className="min-h-svh px-4 py-8 sm:py-16">
       <div className="mx-auto w-full max-w-xl">
-        {title && <h1 className="mb-6 font-display text-3xl font-medium tracking-tight sm:text-4xl">{title}</h1>}
+        {title && !form.header?.title && <h1 className="mb-6 font-display text-3xl font-medium tracking-tight sm:text-4xl">{title}</h1>}
         <div className="rounded-xl border bg-card p-5 sm:p-8">
           <FormRenderer form={form} allowAnother />
         </div>
