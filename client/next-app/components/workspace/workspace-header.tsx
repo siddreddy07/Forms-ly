@@ -1,15 +1,8 @@
 import { ArrowLeftIcon } from "lucide-react"
 import Link from "next/link"
 
-import { Badge } from "@/components/ui/badge"
-import { buttonVariants } from "@/components/ui/button"
+import { HeaderActions, StatusBadge } from "@/components/workspace/header-actions"
 import type { FormStatus } from "@/lib/api/types"
-
-const statusLabel: Record<FormStatus, string> = {
-  draft: "Draft",
-  published: "Published",
-  closed: "Closed",
-}
 
 function WorkspaceHeader({ formId, title, status }: { formId: string; title: string; status: FormStatus }) {
   return (
@@ -23,31 +16,11 @@ function WorkspaceHeader({ formId, title, status }: { formId: string; title: str
           <ArrowLeftIcon className="size-4" />
         </Link>
         <h1 className="min-w-0 truncate font-display text-lg font-medium tracking-tight">{title}</h1>
-        <Badge variant="secondary" className="shrink-0 rounded-md!">
-          {statusLabel[status]}
-        </Badge>
-        <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <Link
-            href={`/f/${formId}`}
-            target="_blank"
-            rel="noreferrer"
-            className={buttonVariants({ variant: "outline", size: "default" })}
-          >
-            Preview
-          </Link>
-          <button
-            type="button"
-            disabled
-            className={buttonVariants({ size: "default" })}
-            title="Available once the builder exists"
-          >
-            Publish
-          </button>
-        </div>
+        <StatusBadge formId={formId} fallback={status} />
+        <HeaderActions formId={formId} />
       </div>
     </header>
   )
 }
 
 export { WorkspaceHeader }
-

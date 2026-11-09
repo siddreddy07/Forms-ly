@@ -1,8 +1,18 @@
 "use client"
 
-import type { ReactElement } from "react"
+import { useSyncExternalStore, type ReactElement } from "react"
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+const noop = () => () => {}
+const isMac = () => /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent)
+
+/* Shows Command and Shift symbols on Apple devices, Ctrl and Shift words elsewhere. */
+function useShortcutLabel(shortcut?: string) {
+  const mac = useSyncExternalStore(noop, isMac, () => false)
+  if (!shortcut) return undefined
+  return mac ? shortcut.replace("Ctrl", "⌘").replace("Shift", "⇧").replace("Del", "⌫").replace(/ /g, "") : shortcut
+}
 
 /* Tooltip for builder controls: a name, a one-line explanation and the shortcut.
    Touch screens never show it, so every control keeps its own aria-label. */
@@ -19,13 +29,14 @@ export function Hint({
   side?: "top" | "bottom" | "left" | "right"
   children: ReactElement
 }) {
+  const keys = useShortcutLabel(shortcut)
   return (
     <Tooltip>
       <TooltipTrigger delay={350} closeDelay={0} render={children} />
       <TooltipContent side={side} className="max-w-56 flex-col items-start gap-0.5 py-2">
         <span className="flex w-full items-center justify-between gap-3 font-medium">
           {title}
-          {shortcut && <kbd className="rounded bg-background/20 px-1.5 py-0.5 font-mono text-[10px]">{shortcut}</kbd>}
+          {keys && <kbd className="rounded bg-background/20 px-1.5 py-0.5 font-mono text-[10px]">{keys}</kbd>}
         </span>
         {description && <span className="opacity-70">{description}</span>}
       </TooltipContent>

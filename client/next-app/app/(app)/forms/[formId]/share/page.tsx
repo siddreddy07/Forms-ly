@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
-import { Share2Icon } from "lucide-react"
 
-import { SectionPlaceholder } from "@/components/workspace/section-placeholder"
+import { ShareView } from "@/components/forms/share-view"
 
 export const metadata: Metadata = { title: "Share" }
 
-export default function Page() {
-  return <SectionPlaceholder icon={Share2Icon} title="Share" hint="Publish, copy the link, and embed the form." />
+export default async function Page({ params }: { params: Promise<{ formId: string }> }) {
+  const { formId } = await params
+  return <ShareView formId={formId} />
 }

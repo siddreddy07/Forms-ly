@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
-import { Settings2Icon } from "lucide-react"
 
-import { SectionPlaceholder } from "@/components/workspace/section-placeholder"
+import { SettingsView } from "@/components/forms/settings-view"
 
 export const metadata: Metadata = { title: "Settings" }
 
-export default function Page() {
-  return <SectionPlaceholder icon={Settings2Icon} title="Settings" hint="Name, link address, limits and notifications." />
+export default async function Page({ params }: { params: Promise<{ formId: string }> }) {
+  const { formId } = await params
+  return <SettingsView formId={formId} />
 }

@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { useBuilderStore } from "@/components/builder/builder-context"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { publishForm } from "@/lib/api/mock-meta"
 import { readServerRecord, saveToServer, type ServerRecord } from "@/lib/api/mock-server"
 import { clearDraft, readDraft, summarizeChanges, writeDraft, type Draft } from "@/lib/builder/draft"
 import { timeAgo } from "@/lib/time"
@@ -21,6 +22,12 @@ type Persistence = {
   /* True when the browser refused to keep a local backup. */
   backupFailed: boolean
   save: () => void
+  /* Saves any changes, then makes that saved copy live. */
+  publish: () => void
+  publishing: boolean
+  /* The saved version this page is based on. */
+  version: number
+  formId: string
 }
 
 const Ctx = React.createContext<Persistence | null>(null)
@@ -45,12 +52,15 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
   const [backupFailed, setBackupFailed] = React.useState(false)
   const [restore, setRestore] = React.useState<{ draft: Draft; newerOnServer: boolean; changes: string[] } | null>(null)
   const [conflict, setConflict] = React.useState<ServerRecord | null>(null)
+  const [version, setVersion] = React.useState(1)
+  const [publishing, setPublishing] = React.useState(false)
 
   const baseVersion = React.useRef(1)
   const savedDoc = React.useRef<FormDocument>(initial)
   const ready = React.useRef(false)
   const restoring = React.useRef(false)
   const saving = React.useRef(false)
+  const publishingRef = React.useRef(false)
   const statusRef = React.useRef<SaveStatus>("saved")
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -94,6 +104,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     /* eslint-disable react-hooks/set-state-in-effect */
     const server = readServerRecord(formId, initial)
     baseVersion.current = server.version
+    setVersion(server.version)
     if (server.version > 1) loadDoc(server.doc)
     savedDoc.current = store.getState().doc
     setSavedAt(server.updatedAt)
@@ -128,10 +139,10 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     }
   }, [store, schedule, flush, setStatusBoth])
 
-  const save = React.useCallback(async () => {
-    if (saving.current) return
+  const save = React.useCallback(async (): Promise<boolean> => {
+    if (saving.current) return false
     const doc = store.getState().doc
-    if (doc === savedDoc.current && statusRef.current !== "error") return
+    if (doc === savedDoc.current && statusRef.current !== "error") return true
     saving.current = true
     setStatusBoth("saving")
     const res = await saveToServer(formId, doc, baseVersion.current, initial)
@@ -139,23 +150,47 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
 
     if (res.ok) {
       baseVersion.current = res.version
+      setVersion(res.version)
       savedDoc.current = doc
       setSavedAt(res.updatedAt)
       setStatusBoth(store.getState().doc === doc ? "saved" : "dirty")
       flush()
       toast.success("Saved")
+      return true
     } else if (res.reason === "conflict") {
       setStatusBoth("error")
       setConflict(res.server)
+      return false
     } else {
       setStatusBoth("error")
       toast.error("Couldn't save. Check your connection and try again. Your changes are still here.", { action: { label: "Retry", onClick: () => saveRef.current() } })
     }
+    return false
   }, [store, formId, initial, flush, setStatusBoth])
 
   React.useEffect(() => {
     saveRef.current = () => void save()
   }, [save])
+
+  const publish = React.useCallback(async () => {
+    if (publishingRef.current) return
+    publishingRef.current = true
+    setPublishing(true)
+    const ok = await save()
+    if (ok) {
+      publishForm(formId, savedDoc.current, baseVersion.current)
+      toast.success("Published. Your form is live.")
+    }
+    publishingRef.current = false
+    setPublishing(false)
+  }, [save, formId])
+
+  /* The workspace header's Publish button asks the builder to do it, so unsaved work is saved first. */
+  React.useEffect(() => {
+    const onRequest = () => void publish()
+    window.addEventListener("builder:publish", onRequest)
+    return () => window.removeEventListener("builder:publish", onRequest)
+  }, [publish])
 
   /* Ctrl or Cmd + S, and a warning before leaving with unsaved work. */
   React.useEffect(() => {
@@ -195,6 +230,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     if (!conflict) return
     loadDoc(conflict.doc)
     baseVersion.current = conflict.version
+    setVersion(conflict.version)
     savedDoc.current = store.getState().doc
     setSavedAt(conflict.updatedAt)
     setStatusBoth("saved")
@@ -209,7 +245,10 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     void save()
   }
 
-  const value = React.useMemo(() => ({ status, savedAt, backupFailed, save: () => void save() }), [status, savedAt, backupFailed, save])
+  const value = React.useMemo(
+    () => ({ status, savedAt, backupFailed, save: () => void save(), publish: () => void publish(), publishing, version, formId }),
+    [status, savedAt, backupFailed, save, publish, publishing, version, formId]
+  )
 
   return (
     <Ctx.Provider value={value}>

@@ -13,6 +13,7 @@ import { PersistenceProvider, useSave } from "@/components/builder/persistence"
 import { PropertiesPanel } from "@/components/builder/properties-panel"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
+import { useFormMeta } from "@/components/forms/use-form-meta"
 import { HEADER_ID } from "@/lib/builder/store"
 import { cn } from "@/lib/utils"
 import type { FormDocument } from "@/lib/schema"
@@ -34,7 +35,12 @@ const saveHint = {
 } as const
 
 function SaveControls() {
-  const { status, backupFailed, save } = useSave()
+  const { status, backupFailed, save, publish, publishing, version, formId } = useSave()
+  const meta = useFormMeta(formId)
+  const unsaved = status !== "saved"
+  const live = !!meta?.published
+  const upToDate = live && !unsaved && meta?.publishedVersion === version
+  const publishLabel = upToDate ? "Published" : live ? "Save & update" : "Save & publish"
   const Icon = { saved: CheckIcon, dirty: CircleDotIcon, drafted: HardDriveIcon, saving: Loader2Icon, error: CloudOffIcon }[status]
   return (
     <div className="ml-auto flex items-center gap-2">
@@ -45,8 +51,13 @@ function SaveControls() {
         </span>
       </Hint>
       <Hint title="Save" description="Keep your changes." shortcut="Ctrl S">
-        <Button size="sm" onClick={save} disabled={status === "saved" || status === "saving"}>
+        <Button size="sm" variant="outline" onClick={save} disabled={status === "saved" || status === "saving"} className={cn(!unsaved && "max-sm:hidden")}>
           Save
+        </Button>
+      </Hint>
+      <Hint title={publishLabel} description={live ? "Make your latest changes live." : "Save, then get a link you can share."}>
+        <Button size="sm" onClick={publish} disabled={!meta || upToDate || publishing || status === "saving"} className={cn(unsaved && "max-sm:hidden")}>
+          {publishing ? "Publishing" : publishLabel}
         </Button>
       </Hint>
     </div>
