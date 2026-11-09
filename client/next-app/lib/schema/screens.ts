@@ -2,7 +2,7 @@ import { isBlockVisible } from "./logic"
 import { isAnswerBlock } from "./registry"
 import type { Answers, Block, FormDocument, FormMode } from "./types"
 
-export type Screen = { id: string; title?: string; blocks: Block[] }
+export type Screen = { id: string; title?: string; heading?: string; description?: string; blocks: Block[] }
 
 /* Splits a form into the screens a respondent walks through. Recomputed on every answer change. */
 export function buildScreens(form: FormDocument, answers: Answers, mode: FormMode = form.mode): Screen[] {
@@ -14,7 +14,7 @@ export function buildScreens(form: FormDocument, answers: Answers, mode: FormMod
 
   if (mode === "steps") {
     const screens = form.steps
-      .map((s) => ({ id: s.id, title: s.title, blocks: visibleIn(s.blocks) }))
+      .map((s) => ({ id: s.id, title: s.title, heading: s.heading, description: s.description, blocks: visibleIn(s.blocks) }))
       .filter((s) => s.blocks.length > 0)
     return screens.length ? screens : [{ id: "empty", blocks: [] }]
   }

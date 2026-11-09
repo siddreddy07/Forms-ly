@@ -1,11 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { ArrowDownIcon, ArrowUpIcon, CopyIcon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
+import { CopyIcon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
 
 import { BlockLibrary } from "@/components/builder/block-library"
 import { BuilderProvider, useBuilder, useHistory } from "@/components/builder/builder-context"
 import { Canvas } from "@/components/builder/canvas"
+import { Hint } from "@/components/builder/hint"
 import { BuilderDnd } from "@/components/builder/dnd"
 import { PropertiesPanel } from "@/components/builder/properties-panel"
 import { Button } from "@/components/ui/button"
@@ -27,38 +28,31 @@ function Toolbar() {
   const selectedId = picked === HEADER_ID ? null : picked
   const deleteBlock = useBuilder((s) => s.deleteBlock)
   const duplicateBlock = useBuilder((s) => s.duplicateBlock)
-  const moveBlock = useBuilder((s) => s.moveBlock)
   const btn = "size-9"
 
   return (
     <div className="sticky top-14 z-20 flex items-center gap-1 border-b bg-background/85 px-3 py-2 backdrop-blur-xl lg:top-0">
-      <Button variant="ghost" size="icon" className={btn} onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
-        <Undo2Icon />
-      </Button>
-      <Button variant="ghost" size="icon" className={btn} onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
-        <Redo2Icon />
-      </Button>
+      <Hint title="Undo" description="Step back one change." shortcut="Ctrl Z">
+        <Button variant="ghost" size="icon" className={btn} onClick={undo} disabled={!canUndo} aria-label="Undo">
+          <Undo2Icon />
+        </Button>
+      </Hint>
+      <Hint title="Redo" description="Bring back what you undid." shortcut="Ctrl Shift Z">
+        <Button variant="ghost" size="icon" className={btn} onClick={redo} disabled={!canRedo} aria-label="Redo">
+          <Redo2Icon />
+        </Button>
+      </Hint>
       <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />
-      <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && moveBlock(selectedId, -1)} aria-label="Move up" title="Move up (Alt+Up)">
-        <ArrowUpIcon />
-      </Button>
-      <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && moveBlock(selectedId, 1)} aria-label="Move down" title="Move down (Alt+Down)">
-        <ArrowDownIcon />
-      </Button>
-      <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && duplicateBlock(selectedId)} aria-label="Duplicate block" title="Duplicate (Ctrl+D)">
-        <CopyIcon />
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon"
-        className={btn}
-        disabled={!picked}
-        onClick={() => picked && deleteBlock(picked)}
-        aria-label="Delete block"
-        title="Delete block (Delete)"
-      >
-        <Trash2Icon />
-      </Button>
+      <Hint title="Duplicate" description="Copy the selected block right below it." shortcut="Ctrl D">
+        <Button variant="ghost" size="icon" className={btn} disabled={!selectedId} onClick={() => selectedId && duplicateBlock(selectedId)} aria-label="Duplicate block">
+          <CopyIcon />
+        </Button>
+      </Hint>
+      <Hint title="Delete" description="Remove the selected block. Undo brings it back." shortcut="Del">
+        <Button variant="ghost" size="icon" className={btn} disabled={!picked} onClick={() => picked && deleteBlock(picked)} aria-label="Delete block">
+          <Trash2Icon />
+        </Button>
+      </Hint>
     </div>
   )
 }

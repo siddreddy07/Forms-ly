@@ -95,7 +95,11 @@ export const blockSchema = z.object({
 
 export const stepSchema = z.object({
   id: z.string().min(1),
+  /* Short name used in the progress bar. */
   title: z.string().optional(),
+  /* Big heading and a short paragraph shown at the top of the page. */
+  heading: z.string().optional(),
+  description: z.string().optional(),
   blocks: z.array(blockSchema),
 })
 

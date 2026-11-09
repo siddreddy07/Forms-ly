@@ -165,6 +165,13 @@ function FormRenderer({
         </div>
       )}
 
+      {(current.heading || current.description) && (
+        <div className="mb-5 grid gap-1">
+          {current.heading && <h2 className="font-display text-2xl font-medium tracking-tight">{current.heading}</h2>}
+          {current.description && <p className="text-muted-foreground">{current.description}</p>}
+        </div>
+      )}
+
       <div
         key={current.id}
         className="grid grid-cols-12 gap-x-4 gap-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none"

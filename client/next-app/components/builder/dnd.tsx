@@ -17,6 +17,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core"
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable"
+import { SeparatorHorizontalIcon } from "lucide-react"
 
 import { blockIcons } from "@/components/builder/block-icons"
 import { useBuilder } from "@/components/builder/builder-context"
@@ -29,6 +30,7 @@ export const useDropHint = () => React.useContext(HintContext)
 
 export const stepZoneId = (stepId: string) => `step:${stepId}`
 const LIB = "lib:"
+const BREAK = "lib:page_break"
 
 /* Prefer a block under the pointer over the step it sits in. */
 const collide: CollisionDetection = (args) => {
@@ -55,8 +57,9 @@ function locate(doc: FormDocument, overId: string, after: boolean) {
 function BuilderDnd({ children }: { children: React.ReactNode }) {
   const doc = useBuilder((s) => s.doc)
   const insertBlock = useBuilder((s) => s.insertBlock)
+  const insertPageBreak = useBuilder((s) => s.insertPageBreak)
   const reorderBlock = useBuilder((s) => s.reorderBlock)
-  const [dragType, setDragType] = React.useState<BlockType | null>(null)
+  const [dragType, setDragType] = React.useState<BlockType | "page_break" | null>(null)
   const [hint, setHint] = React.useState<DropHint>(null)
 
   const sensors = useSensors(
@@ -76,7 +79,7 @@ function BuilderDnd({ children }: { children: React.ReactNode }) {
 
   function onStart(e: DragStartEvent) {
     const id = String(e.active.id)
-    if (id.startsWith(LIB)) setDragType(id.slice(LIB.length) as BlockType)
+    if (id.startsWith(LIB)) setDragType(id.slice(LIB.length) as BlockType | "page_break")
   }
 
   function onMove(e: DragMoveEvent) {
@@ -94,7 +97,10 @@ function BuilderDnd({ children }: { children: React.ReactNode }) {
     if (!overId) return
     if (activeId.startsWith(LIB)) {
       const at = locate(doc, overId, after)
-      if (at) insertBlock(activeId.slice(LIB.length) as BlockType, at.stepId, at.index)
+      if (at) {
+        if (activeId === BREAK) insertPageBreak(at.stepId, at.index)
+        else insertBlock(activeId.slice(LIB.length) as BlockType, at.stepId, at.index)
+      }
     } else if (activeId !== overId) {
       const from = doc.steps.find((s) => s.blocks.some((b) => b.id === activeId))
       const to = locate(doc, overId, false)
@@ -110,7 +116,8 @@ function BuilderDnd({ children }: { children: React.ReactNode }) {
     setHint(null)
   }
 
-  const Icon = dragType ? blockIcons[dragType] : null
+  const Icon = dragType === "page_break" ? SeparatorHorizontalIcon : dragType ? blockIcons[dragType] : null
+  const dragLabel = dragType === "page_break" ? "Page break" : dragType ? blockRegistry[dragType].label : ""
 
   return (
     <DndContext id="builder-dnd" sensors={sensors} collisionDetection={collide} onDragStart={onStart} onDragMove={onMove} onDragEnd={onEnd} onDragCancel={cancel}>
@@ -119,7 +126,7 @@ function BuilderDnd({ children }: { children: React.ReactNode }) {
         {dragType && Icon ? (
           <div className="flex h-10 w-48 items-center gap-2.5 rounded-lg border bg-background px-2.5 text-sm shadow-lg">
             <Icon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-            <span className="truncate">{blockRegistry[dragType].label}</span>
+            <span className="truncate">{dragLabel}</span>
           </div>
         ) : null}
       </DragOverlay>
