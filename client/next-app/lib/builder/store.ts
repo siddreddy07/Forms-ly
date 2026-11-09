@@ -13,12 +13,19 @@ export type BuilderActions = {
   select: (id: string | null) => void
   addBlock: (type: BlockType) => void
   deleteBlock: (id: string) => void
+  /* Typing bursts are merged into a single undo step. */
+  updateBlock: (id: string, patch: Partial<Block>) => void
 }
 
 export type BuilderStore = ReturnType<typeof createBuilderStore>
 
 /* Only `doc` is tracked for undo and redo. Selection is view state. */
 export function createBuilderStore(initial: FormDocument) {
+  /* While `editing`, rapid changes are folded into one history entry. */
+  let editing = false
+  let burst = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+
   return createStore<BuilderState & BuilderActions>()(
     temporal(
       (set, get) => ({
@@ -51,6 +58,17 @@ export function createBuilderStore(initial: FormDocument) {
           set({ doc: { ...doc, steps }, selectedId: block.id, activeStepId: steps[stepIndex].id })
         },
 
+        updateBlock: (id, patch) => {
+          const { doc } = get()
+          const steps = doc.steps.map((s) => ({
+            ...s,
+            blocks: s.blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+          }))
+          editing = true
+          set({ doc: { ...doc, steps } })
+          editing = false
+        },
+
         deleteBlock: (id) => {
           const { doc } = get()
           const steps = doc.steps.map((s) => ({ ...s, blocks: s.blocks.filter((b) => b.id !== id) }))
@@ -59,6 +77,22 @@ export function createBuilderStore(initial: FormDocument) {
       }),
       {
         limit: 100,
+        handleSet: (handleSet) => (pastState, replace) => {
+          if (!editing) {
+            burst = false
+            if (timer) clearTimeout(timer)
+            handleSet(pastState, replace)
+            return
+          }
+          if (!burst) {
+            burst = true
+            handleSet(pastState, replace)
+          }
+          if (timer) clearTimeout(timer)
+          timer = setTimeout(() => {
+            burst = false
+          }, 700)
+        },
         partialize: (state) => ({ doc: state.doc }),
         equality: (a, b) => a.doc === b.doc,
       }

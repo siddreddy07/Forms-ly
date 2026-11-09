@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { PlusIcon } from "lucide-react"
 
 import { useBuilder } from "@/components/builder/builder-context"
@@ -13,6 +14,13 @@ function Canvas() {
   const selectedId = useBuilder((s) => s.selectedId)
   const select = useBuilder((s) => s.select)
   const empty = doc.steps.every((s) => s.blocks.length === 0)
+
+  /* On phones the editing panel covers the lower half, so bring the selected block to the top. */
+  React.useEffect(() => {
+    if (!selectedId || window.matchMedia("(min-width: 1024px)").matches) return
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${selectedId}"]`)
+    requestAnimationFrame(() => el?.scrollIntoView({ block: "start", behavior: "smooth" }))
+  }, [selectedId])
 
   if (empty) {
     return (
@@ -39,9 +47,10 @@ function Canvas() {
             {step.blocks.map((block) => {
               const selected = block.id === selectedId
               return (
-                <div key={block.id} className={spanClass(block)}>
+                <div key={block.id} className={spanClass(block, true)}>
                   <div
                     role="button"
+                    data-block-id={block.id}
                     tabIndex={0}
                     aria-pressed={selected}
                     aria-label={`${blockRegistry[block.type].label}: ${block.label || block.content || "untitled"}`}
@@ -56,7 +65,7 @@ function Canvas() {
                       }
                     }}
                     className={cn(
-                      "cursor-pointer rounded-lg border border-transparent p-2 outline-none transition-colors hover:border-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+                      "scroll-mt-32 cursor-pointer rounded-lg border border-transparent p-2 outline-none transition-colors hover:border-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
                       selected && "border-foreground bg-muted/40 hover:border-foreground"
                     )}
                   >

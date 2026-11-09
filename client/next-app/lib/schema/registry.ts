@@ -54,3 +54,13 @@ export const blockGroups: { id: BlockGroup; label: string }[] = [
 export function isAnswerBlock(type: BlockType) {
   return blockRegistry[type].collectsAnswer
 }
+
+/* Form-design research (Baymard, NN/g, GOV.UK) agrees on one column by default: side-by-side fields
+   are skipped more often and read in the wrong order. Names, emails, phone numbers and links stay
+   full width. Only short, naturally paired values may share a row: date + time, quantity + yes/no,
+   or two short dropdowns. Everything else (long text, option cards, scales, uploads, layout) is full. */
+const sharesRow = new Set<BlockType>(["number", "date", "time", "dropdown", "yes_no"])
+
+export function supportsWidth(type: BlockType) {
+  return sharesRow.has(type)
+}

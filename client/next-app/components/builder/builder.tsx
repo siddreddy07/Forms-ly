@@ -9,6 +9,7 @@ import { Canvas } from "@/components/builder/canvas"
 import { PropertiesPanel } from "@/components/builder/properties-panel"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
+import { cn } from "@/lib/utils"
 import type { FormDocument } from "@/lib/schema"
 
 function isTyping(target: EventTarget | null) {
@@ -53,6 +54,8 @@ function BuilderShell() {
   const selectedId = useBuilder((s) => s.selectedId)
   const deleteBlock = useBuilder((s) => s.deleteBlock)
   const { undo, redo } = useHistory()
+  const select = useBuilder((s) => s.select)
+  const hasSelection = useBuilder((s) => s.doc.steps.some((st) => st.blocks.some((b) => b.id === s.selectedId)))
   const [libraryOpen, setLibraryOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -83,7 +86,7 @@ function BuilderShell() {
 
       <div className="min-w-0 lg:overflow-y-auto">
         <Toolbar />
-        <div className="bg-muted/40 px-3 py-4 pb-28 max-lg:min-h-[calc(100svh-7.5rem)] sm:px-6 sm:py-8 lg:min-h-[calc(100%-3.25rem)] lg:pb-8">
+        <div className={cn("bg-muted/40 px-3 py-4 pb-28 max-lg:min-h-[calc(100svh-7.5rem)] sm:px-6 sm:py-8 lg:min-h-[calc(100%-3.25rem)] lg:pb-8", hasSelection && "max-lg:pb-[46svh]")}>
           <Canvas />
         </div>
       </div>
@@ -92,10 +95,24 @@ function BuilderShell() {
         <PropertiesPanel />
       </aside>
 
-      {/* Phones and tablets: add button floats above the bottom tab bar */}
+      {/* Phones and tablets: editing panel docks above the tab bar so the canvas stays visible */}
+      <div
+        role="region"
+        aria-label="Block properties"
+        aria-hidden={!hasSelection}
+        inert={!hasSelection}
+        className={cn(
+          "fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-30 flex max-h-[42svh] flex-col overflow-hidden rounded-t-xl border-t bg-background shadow-[0_-8px_30px_-12px_rgb(0_0_0/0.25)] transition-[transform,visibility] duration-300 ease-out lg:hidden",
+          hasSelection ? "translate-y-0" : "invisible translate-y-full"
+        )}
+      >
+        <PropertiesPanel compact onClose={() => select(null)} onDelete={() => selectedId && deleteBlock(selectedId)} />
+      </div>
+
+      {/* Add button floats above the bottom tab bar */}
       <Button
         size="lg"
-        className="fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 h-11 shadow-lg lg:hidden"
+        className={cn("fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-30 h-11 shadow-lg lg:hidden", hasSelection && "invisible")}
         onClick={() => setLibraryOpen(true)}
       >
         <PlusIcon data-icon="inline-start" />

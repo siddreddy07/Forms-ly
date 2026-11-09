@@ -1,7 +1,7 @@
 import { nanoid } from "nanoid"
 
 import { blockRegistry } from "./registry"
-import { SCHEMA_VERSION, type Block, type BlockType, type FormDocument, type Step } from "./types"
+import { SCHEMA_VERSION, type Block, type BlockType, type FormDocument, type Option, type Step } from "./types"
 
 const id = (prefix: string) => `${prefix}_${nanoid(8)}`
 
@@ -30,4 +30,8 @@ export function createEmptyForm(): FormDocument {
 
 export function allBlocks(form: FormDocument): Block[] {
   return form.steps.flatMap((s) => s.blocks)
+}
+
+export function createOption(label: string): Option {
+  return { id: id("opt"), label }
 }

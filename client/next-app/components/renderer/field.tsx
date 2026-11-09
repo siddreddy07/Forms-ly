@@ -11,7 +11,7 @@ import {
 } from "@/components/renderer/inputs"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import type { AnswerValue, Block, FileAnswer } from "@/lib/schema"
+import { supportsWidth, type AnswerValue, type Block, type FileAnswer } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 
 const spans: Record<number, string> = {
@@ -20,7 +20,16 @@ const spans: Record<number, string> = {
   9: "sm:col-span-9", 10: "sm:col-span-10", 11: "sm:col-span-11", 12: "sm:col-span-12",
 }
 
-export function spanClass(block: Block) {
+const flatSpans: Record<number, string> = {
+  1: "col-span-1", 2: "col-span-2", 3: "col-span-3", 4: "col-span-4",
+  5: "col-span-5", 6: "col-span-6", 7: "col-span-7", 8: "col-span-8",
+  9: "col-span-9", 10: "col-span-10", 11: "col-span-11", 12: "col-span-12",
+}
+
+/* `always` applies the chosen width at every screen size (used by the builder canvas). */
+export function spanClass(block: Block, always = false) {
+  if (!supportsWidth(block.type)) return "col-span-12"
+  if (always) return flatSpans[block.layout.colSpan] ?? "col-span-12"
   return cn("col-span-12", spans[block.layout.colSpan] ?? "sm:col-span-12")
 }
 

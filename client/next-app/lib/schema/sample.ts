@@ -4,8 +4,8 @@ import { SCHEMA_VERSION } from "./types"
 
 /* Realistic sample used by the demo and tests of the renderer. */
 export function createCafeApplication(): FormDocument {
-  const name = createBlock("short_text", { label: "Full name", required: true, layout: { colSpan: 6 } })
-  const email = createBlock("email", { label: "Email", required: true, layout: { colSpan: 6 } })
+  const name = createBlock("short_text", { label: "Full name", required: true })
+  const email = createBlock("email", { label: "Email", required: true })
   const shift = createBlock("dropdown", {
     label: "Which shift suits you?",
     options: [
@@ -43,10 +43,10 @@ export function createClientIntake(): FormDocument {
       createStep("Client intake", [
         createBlock("heading", { content: "Tell us about the project" }),
         createBlock("paragraph", { content: "Five minutes now saves a week of back and forth later." }),
-        createBlock("short_text", { label: "Your name", required: true, layout: { colSpan: 6 } }),
-        createBlock("email", { label: "Email", required: true, layout: { colSpan: 6 } }),
-        createBlock("short_text", { label: "Company", layout: { colSpan: 6 } }),
-        createBlock("phone", { label: "Phone", layout: { colSpan: 6 } }),
+        createBlock("short_text", { label: "Your name", required: true }),
+        createBlock("email", { label: "Email", required: true }),
+        createBlock("short_text", { label: "Company" }),
+        createBlock("phone", { label: "Phone" }),
         createBlock("single_choice", {
           label: "What do you need?",
           required: true,
