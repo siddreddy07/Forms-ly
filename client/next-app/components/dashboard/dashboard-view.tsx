@@ -222,7 +222,7 @@ function DashboardView() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-7xl px-4 pb-28 sm:px-6 lg:pt-2 lg:pb-12">
+      <div className="@container mx-auto w-full max-w-7xl px-4 pb-28 sm:px-6 lg:pt-2 lg:pb-12">
         <FilterBar {...filterProps} />
         {loadState === "loading" ? (
           <div className="mt-4" aria-busy="true" aria-label="Loading your forms">
@@ -244,7 +244,7 @@ function DashboardView() {
             </Button>
           </div>
         ) : forms.length > 0 ? (
-          <ul className="mt-0 grid gap-3 lg:mt-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
+          <ul className="mt-0 grid gap-3 lg:mt-4 @min-[592px]:grid-cols-2 @min-[592px]:gap-5 @min-[976px]:grid-cols-3 @min-[1232px]:grid-cols-4">
             {forms.map((form) => (
               <li key={form.id} className="h-full">
                 <FormCard form={form} folders={folders} actions={actions} />
