@@ -22,8 +22,8 @@ const documentSchema = z.looseObject({
 const idSchema = z.uuid()
 
 // The form's look (Design tab). Same shape as FormDesign in the frontend (lib/api/mock-design.ts).
-// URLs are only length-limited here because people type them letter by letter; the page only uses a link once it
-// is a valid web address, and anything that shows these to the public must check that again.
+// Link fields are only length-limited here because people type them letter by letter; the page only uses a link once
+// it is a valid web address, and anything that shows these to the public must check that again.
 const designSchema = z.object({
   background: z
     .object({
@@ -33,7 +33,6 @@ const designSchema = z.object({
     .nullable(),
   font: z.enum(["sans", "serif", "mono"]),
   accent: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(),
-  logo: z.object({ url: z.string().max(2000), size: z.enum(["sm", "md", "lg"]), align: z.enum(["left", "center"]) }).nullable(),
   radius: z.enum(["sm", "md", "lg"]),
   width: z.enum(["narrow", "normal", "wide"]),
   thankYou: z.object({
