@@ -4,18 +4,27 @@ import express from "express"
 
 import { connectDB } from "./config/db.js"
 import { requireUser } from "./middleware/auth.js"
+import formsRoutes from "./routes/forms.routes.js"
 
 const app = express()
 
 // Let the Next.js app (a different address) call this API
 app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }))
-app.use(express.json())
+app.use(express.json({ limit: "2mb" }))
 // Reads the Clerk session on every request (never blocks by itself)
 app.use(clerkMiddleware())
 
 // Who am I? Needs a Clerk session token in the Authorization header
 app.get("/me", requireUser, (req, res) => {
   res.json({ user: req.user })
+})
+
+app.use("/forms", requireUser, formsRoutes)
+
+// Any error nobody handled: reply with JSON instead of a web page
+app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(error)
+  res.status(500).json({ error: "Something went wrong" })
 })
 
 const PORT = process.env.PORT || 4000
