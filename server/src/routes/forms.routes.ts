@@ -34,11 +34,11 @@ function summary(form: Form, responseCount = 0) {
   }
 }
 
-// The title shown in lists follows the title typed into the form header
-function titleFrom(document: Record<string, unknown>): string | undefined {
-  const header = document.header as { title?: unknown } | undefined
-  const title = typeof header?.title === "string" ? header.title.trim() : ""
-  return title ? title.slice(0, 200) : undefined
+// A new blank form shows its name as the form heading. Templates keep their own heading.
+function withHeaderTitle(document: Record<string, unknown>, name: string) {
+  const header = (document.header ?? {}) as { title?: unknown }
+  const hasTitle = typeof header.title === "string" && header.title.trim() !== ""
+  return hasTitle ? document : { ...document, header: { ...header, title: name } }
 }
 
 // Finds one form that belongs to the signed-in user. Someone else's form looks like "not found".
@@ -69,10 +69,11 @@ router.get("/", async (req, res) => {
 })
 
 // ---------- POST /forms : create a form ----------
-// Body: { title?, document }  (the browser sends a blank form or a template)
+// Body: { title, document }  (title is required)  (the browser sends a blank form or a template)
 
 const createSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
+  // Every form must have a name
+  title: z.string().trim().min(1, "Name is required").max(200),
   document: documentSchema,
 })
 
@@ -87,8 +88,8 @@ router.post("/", async (req, res) => {
     .insert(forms)
     .values({
       ownerId: req.user!.id,
-      title: body.data.title ?? titleFrom(body.data.document) ?? "Untitled form",
-      draft: body.data.document,
+      title: body.data.title,
+      draft: withHeaderTitle(body.data.document, body.data.title),
     })
     .returning()
 
@@ -138,7 +139,6 @@ router.put("/:id", saveLimiter, async (req, res) => {
 
   const userId = req.user!.id
   const id = String(req.params.id)
-  const title = titleFrom(body.data.document)
 
   // One query that only writes when (1) the version still matches, so two saves can't both win, and
   // (2) the content really changed, so saving the same thing again costs no database write.
@@ -148,7 +148,6 @@ router.put("/:id", saveLimiter, async (req, res) => {
         .set({
           draft: body.data.document,
           version: sql`${forms.version} + 1`,
-          ...(title ? { title } : {}),
         })
         .where(
           and(
