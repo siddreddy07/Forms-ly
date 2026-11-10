@@ -23,33 +23,12 @@ const updatedAt = () =>
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
+  // The user's id at Clerk (looks like user_2abc...). Clerk handles passwords and sessions.
+  clerkUserId: text("clerk_user_id").notNull().unique(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  passwordHash: text("password_hash").notNull(),
-  // Add 1 to this to log the user out of every device (all old tokens stop working)
-  tokenVersion: integer("token_version").notNull().default(0),
   createdAt: createdAt(),
 })
-
-// ---------- refresh_tokens: one row per login session ----------
-
-export const refreshTokens = pgTable(
-  "refresh_tokens",
-  {
-    // Same value as the jti inside the refresh token
-    id: uuid("id").primaryKey(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    // We store a hash of the token, never the token itself
-    tokenHash: text("token_hash").notNull().unique(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    // Set when the user logs out or the token is swapped for a new one
-    revokedAt: timestamp("revoked_at", { withTimezone: true }),
-    createdAt: createdAt(),
-  },
-  (t) => [index("refresh_tokens_user_id_idx").on(t.userId)]
-)
 
 // ---------- assets: logos and background images users upload ----------
 
@@ -185,8 +164,6 @@ export const files = pgTable(
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
-export type RefreshToken = typeof refreshTokens.$inferSelect
-export type NewRefreshToken = typeof refreshTokens.$inferInsert
 export type Asset = typeof assets.$inferSelect
 export type BrandKit = typeof brandKits.$inferSelect
 export type Form = typeof forms.$inferSelect

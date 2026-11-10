@@ -15,6 +15,13 @@
       "when": 1794295858400,
       "tag": "0001_mighty_layla_miller",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794297092371,
+      "tag": "0002_green_flatman",
+      "breakpoints": true
     }
   ]
 }

@@ -1,15 +1,22 @@
-import cookieParser from "cookie-parser"
+import { clerkMiddleware } from "@clerk/express"
+import cors from "cors"
 import express from "express"
 
 import { connectDB } from "./config/db.js"
-import authRoutes from "./routes/auth.routes.js"
+import { requireUser } from "./middleware/auth.js"
 
 const app = express()
 
+// Let the Next.js app (a different address) call this API
+app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }))
 app.use(express.json())
-app.use(cookieParser())
+// Reads the Clerk session on every request (never blocks by itself)
+app.use(clerkMiddleware())
 
-app.use("/auth", authRoutes)
+// Who am I? Needs a Clerk session token in the Authorization header
+app.get("/me", requireUser, (req, res) => {
+  res.json({ user: req.user })
+})
 
 const PORT = process.env.PORT || 4000
 

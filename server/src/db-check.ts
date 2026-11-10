@@ -9,7 +9,7 @@ async function main() {
   try {
     const [created] = await db
       .insert(users)
-      .values({ name: "Test User", email: "db-check@example.com", passwordHash: "not-a-real-hash" })
+      .values({ name: "Test User", email: "db-check@example.com", clerkUserId: "user_db_check" })
       .returning()
     if (!created) throw new Error("Failed to create user")
     console.log("CREATE:", created.email)
