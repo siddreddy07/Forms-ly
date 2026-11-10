@@ -5,6 +5,7 @@ import express from "express"
 import { connectDB } from "./config/db.js"
 import { requireUser } from "./middleware/auth.js"
 import formsRoutes from "./routes/forms.routes.js"
+import storageRoutes from "./routes/storage.routes.js"
 
 const app = express()
 
@@ -20,6 +21,7 @@ app.get("/me", requireUser, (req, res) => {
 })
 
 app.use("/forms", requireUser, formsRoutes)
+app.use("/storage", requireUser, storageRoutes)
 
 // Any error nobody handled: reply with JSON instead of a web page
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

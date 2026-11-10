@@ -8,7 +8,8 @@ import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqu
 export const formStatus = pgEnum("form_status", ["draft", "published", "closed"])
 export const formAccess = pgEnum("form_access", ["public", "private"])
 export const deviceType = pgEnum("device_type", ["phone", "tablet", "desktop"])
-export const storageProvider = pgEnum("storage_provider", ["drive", "cloudinary"])
+// "imagekit" is the one in use. The other two are old values kept so existing rows stay valid.
+export const storageProvider = pgEnum("storage_provider", ["drive", "cloudinary", "imagekit"])
 export const assetKind = pgEnum("asset_kind", ["logo", "background"])
 
 // Handy shortcut for the created/updated columns
@@ -28,6 +29,24 @@ export const users = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   createdAt: createdAt(),
+})
+
+// ---------- storage_connections: a user's own ImageKit account, where their form uploads go ----------
+// Without one, uploads go to our ImageKit account and are limited (see services/storage.ts).
+
+export const storageConnections = pgTable("storage_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  provider: storageProvider("provider").notNull(),
+  urlEndpoint: text("url_endpoint").notNull(),
+  publicKey: text("public_key").notNull(),
+  // The private key, encrypted (libs/crypto.ts). It is never sent to the browser.
+  privateKeyEnc: text("private_key_enc").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
 })
 
 // ---------- assets: logos and background images users upload ----------
@@ -150,9 +169,17 @@ export const files = pgTable(
     responseId: uuid("response_id")
       .notNull()
       .references(() => responses.id, { onDelete: "cascade" }),
+    // The owner of the form, so we can count how many files they have on our storage
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     provider: storageProvider("provider").notNull(),
-    // The file's id or url at Drive / Cloudinary
+    // true: stored in our ImageKit account (counts toward the free limit). false: in the owner's own account.
+    onPlatform: boolean("on_platform").notNull(),
+    // The file's id at ImageKit
     providerRef: text("provider_ref").notNull(),
+    // Where the file lives in ImageKit, for example /forms/<formId>/photo.png
+    filePath: text("file_path").notNull(),
     name: text("name").notNull(),
     size: integer("size").notNull(), // bytes
     mime: text("mime").notNull(),
@@ -164,6 +191,7 @@ export const files = pgTable(
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type StorageConnection = typeof storageConnections.$inferSelect
 export type Asset = typeof assets.$inferSelect
 export type BrandKit = typeof brandKits.$inferSelect
 export type Form = typeof forms.$inferSelect
