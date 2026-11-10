@@ -67,14 +67,12 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString(undefined, { date
 
 /* Publish, update, unpublish and public/private. All of it lives on the server; this page only asks and shows. */
 export function ShareView({ formId }: { formId: string }) {
-  const { form, version, publishInfo: info, publish, unpublish, setAccess, setUseAI } = useFormGate()
+  const { form, version, publishInfo: info, publish, unpublish, setAccess } = useFormGate()
   const origin = useOrigin()
-  const [busy, setBusy] = React.useState<"publish" | "unpublish" | "access" | "ai" | null>(null)
+  const [busy, setBusy] = React.useState<"publish" | "unpublish" | "access" | null>(null)
 
   /* Chosen before the first publish: off means public. */
   const [startPrivate, setStartPrivate] = React.useState(false)
-  /* Also chosen before the first publish: AI features, off unless switched on. */
-  const [startAi, setStartAi] = React.useState(info.useAI)
 
   const access = form.access ?? "public"
   const url = info.slug ? `${origin}/f/${info.slug}` : ""
@@ -97,8 +95,8 @@ export function ShareView({ formId }: { formId: string }) {
         return
       }
     }
-    /* Every publish carries the AI choice: the switch for the first one, the saved choice for updates. */
-    const result = await publish(version, info.published ? undefined : startAi)
+    /* Every publish keeps the saved choices for the form. */
+    const result = await publish(version)
     setBusy(null)
     if (result.ok) toast.success(wasLive ? "Updated. Your changes are live." : "Published. Your form is live.")
     else toast.error(publishError(result))
@@ -118,14 +116,6 @@ export function ShareView({ formId }: { formId: string }) {
     setBusy("access")
     await hold()
     const ok = await setAccess(next)
-    setBusy(null)
-    if (!ok) toast.error("Couldn't change that. Try again.")
-  }
-
-  async function chooseAi(next: boolean) {
-    setBusy("ai")
-    await hold()
-    const ok = await setUseAI(next)
     setBusy(null)
     if (!ok) toast.error("Couldn't change that. Try again.")
   }
@@ -161,15 +151,6 @@ export function ShareView({ formId }: { formId: string }) {
               </span>
             </label>
             <Switch id="start-private" checked={startPrivate} onCheckedChange={setStartPrivate} disabled={busy !== null} />
-          </section>
-
-          {/* Off unless this is switched on. */}
-          <section className="flex items-center justify-between gap-4 p-4 sm:p-5">
-            <label htmlFor="start-ai" className="grid cursor-pointer gap-0.5">
-              <span className="text-sm font-medium">Use AI</span>
-              <span className="text-sm text-muted-foreground">{startAi ? "On: AI features will work with this form once it is live." : "Off: no AI features for this form."}</span>
-            </label>
-            <Switch id="start-ai" checked={startAi} onCheckedChange={setStartAi} disabled={busy !== null} />
           </section>
 
           <section className="flex flex-wrap items-center gap-2 p-4 sm:p-5">
@@ -290,17 +271,6 @@ export function ShareView({ formId }: { formId: string }) {
           <p className="text-sm text-muted-foreground">
             {isPublic ? "Anyone with the link can fill it in." : "People need the access code below to open the link."}
           </p>
-        </section>
-
-        {/* AI features for this form: off unless switched on. Saves as soon as it is changed. */}
-        <section className="flex items-center justify-between gap-4 p-4 sm:p-5">
-          <label htmlFor="use-ai" className="grid cursor-pointer gap-0.5">
-            <span className="text-sm font-medium">Use AI</span>
-            <span className="text-sm text-muted-foreground">{info.useAI ? "On: AI features work with this form." : "Off: no AI features for this form."}</span>
-          </label>
-          <PendingLock pending={busy === "ai"} className="rounded-full">
-            <Switch id="use-ai" checked={info.useAI} onCheckedChange={(on) => void chooseAi(on)} disabled={busy !== null} />
-          </PendingLock>
         </section>
 
         {/* The code that opens a private form. A new one is made each time the form is switched to private. */}
