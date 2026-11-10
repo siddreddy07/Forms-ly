@@ -3,14 +3,16 @@
 import * as React from "react"
 
 import { FormRenderer } from "@/components/renderer/form-renderer"
+import { UploadProvider } from "@/components/renderer/upload-context"
 import { thankYouFor, type FormDesign } from "@/lib/api/mock-design"
-import { submitResponse } from "@/lib/api/responses"
+import { submitResponse, uploadFile } from "@/lib/api/responses"
 import { type FormDocument } from "@/lib/schema"
 
 const messages = {
   closed: "This form is not open any more.",
   code: "The code for this form is no longer valid. Reload the page and enter the new code.",
   busy: "Too many submissions. Wait a minute and try again.",
+  invalid: "Some answers need attention. Check the form and try again.",
   network: "Couldn't send your answers. Check your connection and try again.",
 } as const
 
@@ -24,7 +26,10 @@ export function PublicForm({ slug, doc, design, code }: { slug: string; doc: For
     openedAt.current = Date.now()
   }, [])
 
+  const upload = React.useCallback((file: File) => uploadFile(slug, file, code), [slug, code])
+
   return (
+    <UploadProvider value={upload}>
     <FormRenderer
       form={doc}
       thankYou={thankYouFor(design, { redirect: true })}
@@ -35,8 +40,9 @@ export function PublicForm({ slug, doc, design, code }: { slug: string; doc: For
           device: deviceNow(),
           code,
         })
-        if (!res.ok) throw new Error(messages[res.reason])
+        if (!res.ok) throw new Error(res.reason === "invalid" && res.message ? res.message : messages[res.reason])
       }}
     />
+    </UploadProvider>
   )
 }

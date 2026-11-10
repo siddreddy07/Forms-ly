@@ -130,6 +130,7 @@ export type FormHeader = z.infer<typeof formHeaderSchema>
 export type FormMode = z.infer<typeof formModeSchema>
 export type FormDocument = z.infer<typeof formSchemaV1>
 
-export type FileAnswer = { name: string; size: number; url: string }
+/* url is a preview in this browser. fileId is the upload at the storage once it has finished; uploading is true until then. */
+export type FileAnswer = { name: string; size: number; url: string; fileId?: string; uploading?: boolean }
 export type AnswerValue = string | number | boolean | string[] | FileAnswer[] | null | undefined
 export type Answers = Record<string, AnswerValue>

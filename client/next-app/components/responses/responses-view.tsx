@@ -3,7 +3,7 @@
 import { ResponsesSkeleton } from "@/components/skeletons/tab-skeletons"
 
 import * as React from "react"
-import { DownloadIcon, InboxIcon, SearchIcon } from "lucide-react"
+import { DownloadIcon, InboxIcon, PaperclipIcon, SearchIcon } from "lucide-react"
 import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { toast } from "sonner"
 
@@ -16,6 +16,29 @@ import { useFormGate } from "@/components/workspace/form-gate"
 import { isAnswerBlock, type Block } from "@/lib/schema"
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+
+type StoredFile = { name: string; url: string | null }
+
+/* One answer in the table. Uploaded files are links that open in a new tab (they stop working after an hour; reload for fresh ones). */
+function Answer({ block, value, text }: { block: Block; value: unknown; text: string }) {
+  if (block.type !== "file_upload" || !Array.isArray(value)) return <>{text || <span className="text-muted-foreground/50">-</span>}</>
+  return (
+    <span className="flex flex-wrap gap-x-3 gap-y-1">
+      {(value as StoredFile[]).map((f, i) =>
+        f.url ? (
+          <a key={i} href={f.url} target="_blank" rel="noopener noreferrer" className="inline-flex max-w-full items-center gap-1 text-primary underline-offset-4 hover:underline">
+            <PaperclipIcon className="size-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{f.name}</span>
+          </a>
+        ) : (
+          <span key={i} className="truncate text-muted-foreground" title="The file is no longer available">
+            {f.name}
+          </span>
+        )
+      )}
+    </span>
+  )
+}
 
 function Page({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">{children}</div>
@@ -130,7 +153,7 @@ export function ResponsesView({ formId }: { formId: string }) {
                 cells[ci] ? (
                   <div key={c.id} className="grid gap-0.5">
                     <dt className="text-xs font-medium text-muted-foreground">{c.label || "Untitled question"}</dt>
-                    <dd className="break-words text-sm">{cells[ci]}</dd>
+                    <dd className="break-words text-sm"><Answer block={c} value={r.answers[c.id]} text={cells[ci]} /></dd>
                   </div>
                 ) : null
               )}
@@ -164,7 +187,7 @@ export function ResponsesView({ formId }: { formId: string }) {
                 <TableCell className="px-4 py-3 text-muted-foreground">{when(r.submittedAt)}</TableCell>
                 {cells.map((text, ci) => (
                   <TableCell key={columns[ci].id} className="max-w-72 truncate px-4 py-3" title={text}>
-                    {text || <span className="text-muted-foreground/50">-</span>}
+                    <Answer block={columns[ci]} value={r.answers[columns[ci].id]} text={text} />
                   </TableCell>
                 ))}
                 <TableCell className="px-4 py-2 text-right">

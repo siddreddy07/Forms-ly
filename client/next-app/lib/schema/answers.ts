@@ -67,8 +67,17 @@ function baseSchema(block: Block): z.ZodType {
       const maxFiles = block.validation?.maxFiles ?? 1
       const maxMb = maxUploadMb(block)
       return z
-        .array(z.object({ name: z.string(), size: z.number().max(maxMb * 1024 * 1024, `Each file must be ${maxMb} MB or smaller`), url: z.string() }))
+        .array(
+          z.object({
+            name: z.string(),
+            size: z.number().max(maxMb * 1024 * 1024, `Each file must be ${maxMb} MB or smaller`),
+            url: z.string(),
+            fileId: z.string().optional(),
+            uploading: z.boolean().optional(),
+          })
+        )
         .max(maxFiles, `Upload at most ${maxFiles} file${maxFiles === 1 ? "" : "s"}`)
+        .refine((files) => !files.some((f) => f.uploading), "Wait for the upload to finish")
     }
     default:
       return z.never()

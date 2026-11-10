@@ -4,6 +4,7 @@ import * as React from "react"
 import { CheckIcon, StarIcon, UploadIcon, XIcon } from "lucide-react"
 
 import type { Block, FileAnswer } from "@/lib/schema"
+import { useUploader } from "@/components/renderer/upload-context"
 import { maxUploadMb } from "@/lib/uploads"
 import { cn } from "@/lib/utils"
 
@@ -190,19 +191,36 @@ export function FileInput({
   const maxFiles = block.validation?.maxFiles ?? 1
   const maxMb = maxUploadMb(block)
 
-  function add(files: FileList | null) {
+  const upload = useUploader()
+  /* The newest list, so a file that finishes uploading later changes the list as it is now, not as it was. */
+  const latest = React.useRef(value)
+  React.useEffect(() => {
+    latest.current = value
+  }, [value])
+  const change = (next: FileAnswer[]) => {
+    latest.current = next
+    onChange(next)
+  }
+
+  async function add(files: FileList | null) {
     if (!files) return
     setLocalError(undefined)
-    const accepted: FileAnswer[] = []
-    for (const f of Array.from(files)) {
+    const room = maxFiles - latest.current.length
+    for (const f of Array.from(files).slice(0, Math.max(room, 0))) {
       if (f.size > maxMb * 1024 * 1024) {
         setLocalError(`${f.name} is larger than ${maxMb} MB`)
         continue
       }
-      /* Placeholder until publishing exists: real uploads will go straight to storage and return a URL. */
-      accepted.push({ name: f.name, size: f.size, url: URL.createObjectURL(f) })
+      const item: FileAnswer = { name: f.name, size: f.size, url: URL.createObjectURL(f), uploading: !!upload }
+      change([...latest.current, item])
+      if (!upload) continue
+      const result = await upload(f)
+      if (result.ok) change(latest.current.map((x) => (x.url === item.url ? { ...x, uploading: false, fileId: result.fileId } : x)))
+      else {
+        change(latest.current.filter((x) => x.url !== item.url))
+        setLocalError(`${f.name}: ${result.message}`)
+      }
     }
-    onChange([...value, ...accepted].slice(0, maxFiles))
   }
 
   return (
@@ -229,10 +247,11 @@ export function FileInput({
           {value.map((f, i) => (
             <li key={f.url} className="flex items-center justify-between gap-2 rounded-lg border bg-background px-3 py-2 text-sm">
               <span className="min-w-0 truncate">{f.name}</span>
+              {f.uploading && <span className="shrink-0 text-xs text-muted-foreground">Uploading…</span>}
               <button
                 type="button"
                 aria-label={`Remove ${f.name}`}
-                onClick={() => onChange(value.filter((_, j) => j !== i))}
+                onClick={() => change(value.filter((_, j) => j !== i))}
                 className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
               >
                 <XIcon className="size-4" />

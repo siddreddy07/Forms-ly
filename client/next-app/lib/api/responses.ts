@@ -20,7 +20,7 @@ export type StoredResponse = {
   answers: Answers
 }
 
-export type SubmitResult = { ok: true; id: string } | { ok: false; reason: "closed" | "code" | "busy" | "network" }
+export type SubmitResult = { ok: true; id: string } | { ok: false; reason: "closed" | "code" | "busy" | "network" | "invalid"; message?: string }
 
 /* Sends one filled-in form. No sign-in: this is what a visitor's browser calls. */
 export async function submitResponse(
@@ -41,9 +41,54 @@ export async function submitResponse(
     if (res.status === 201) return { ok: true, id: ((await res.json()) as { id: string }).id }
     if (res.status === 429) return { ok: false, reason: "busy" }
     if (res.status === 403) return { ok: false, reason: "code" }
+    if (res.status === 422) {
+      const body = (await res.json().catch(() => null)) as { error?: string; errors?: Record<string, string> } | null
+      return { ok: false, reason: "invalid", message: body?.errors ? Object.values(body.errors)[0] : body?.error }
+    }
     return { ok: false, reason: "closed" }
   } catch {
     return { ok: false, reason: "network" }
+  }
+}
+
+/* Sends one file straight to the storage with a permission the server signs for this form.
+   Resolves with the upload's id, or an error message to show. */
+export async function uploadFile(slug: string, file: File, code?: string): Promise<{ ok: true; fileId: string } | { ok: false; message: string }> {
+  try {
+    const authRes = await fetch(`${API_URL}/public/forms/${encodeURIComponent(slug)}/uploads`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code }),
+    })
+    if (!authRes.ok) {
+      const body = (await authRes.json().catch(() => null)) as { error?: string } | null
+      return { ok: false, message: body?.error ?? "Uploads aren't available right now." }
+    }
+    const auth = (await authRes.json()) as {
+      uploadUrl: string
+      publicKey: string
+      token: string
+      expire: number
+      signature: string
+      folder: string
+      isPrivateFile: boolean
+    }
+    const form = new FormData()
+    form.set("file", file)
+    form.set("fileName", file.name)
+    form.set("publicKey", auth.publicKey)
+    form.set("signature", auth.signature)
+    form.set("expire", String(auth.expire))
+    form.set("token", auth.token)
+    form.set("folder", auth.folder)
+    form.set("isPrivateFile", String(auth.isPrivateFile))
+    form.set("useUniqueFileName", "true")
+    const up = await fetch(auth.uploadUrl, { method: "POST", body: form })
+    if (!up.ok) return { ok: false, message: "The upload didn't go through. Try again." }
+    const { fileId } = (await up.json()) as { fileId?: string }
+    return fileId ? { ok: true, fileId } : { ok: false, message: "The upload didn't go through. Try again." }
+  } catch {
+    return { ok: false, message: "Couldn't upload. Check your connection and try again." }
   }
 }
 
