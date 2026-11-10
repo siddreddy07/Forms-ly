@@ -17,7 +17,7 @@ function WorkspaceHeader({ formId }: { formId: string }) {
           <ArrowLeftIcon className="size-4" />
         </Link>
         <h1 className="min-w-0 truncate font-display text-lg font-medium tracking-tight"><FormTitle formId={formId} /></h1>
-        <StatusBadge formId={formId} fallback="draft" />
+        <StatusBadge fallback="draft" />
         <HeaderActions formId={formId} />
         <UserButton />
       </div>

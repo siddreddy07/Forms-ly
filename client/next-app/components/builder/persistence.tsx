@@ -6,7 +6,6 @@ import { toast } from "sonner"
 import { useBuilderStore } from "@/components/builder/builder-context"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { publishForm } from "@/lib/api/mock-meta"
 import { useFormGate } from "@/components/workspace/form-gate"
 import { ApiError, useApi } from "@/lib/api/http"
 import type { ConflictResponse, SaveResponse } from "@/lib/api/forms"
@@ -325,14 +324,18 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     if (publishingRef.current) return
     publishingRef.current = true
     setPublishing(true)
+    const wasLive = gate.publishInfo.published
     const ok = await save()
     if (ok) {
-      publishForm(formId, savedDoc.current, baseVersion.current)
-      toast.success("Published. Your form is live.")
+      const result = await gate.publish(baseVersion.current)
+      if (result.ok) toast.success(wasLive ? "Updated. Your changes are live." : "Published. Your form is live.")
+      else if (result.reason === "archived") toast.error("Restore this form before publishing it.")
+      else if (result.reason === "conflict") toast.error("This form changed somewhere else. Reload the page and try again.")
+      else toast.error("Couldn't publish. Check your connection and try again.")
     }
     publishingRef.current = false
     setPublishing(false)
-  }, [save, formId])
+  }, [save, gate])
 
   /* The workspace header's Publish button asks the builder to do it, so unsaved work is saved first. */
   React.useEffect(() => {

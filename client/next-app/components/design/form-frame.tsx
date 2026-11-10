@@ -1,6 +1,7 @@
 "use client"
 
 import { useFormDesign } from "@/components/design/use-form-design"
+import type { FormDesign } from "@/lib/api/mock-design"
 import { brand } from "@/lib/brand"
 import { cn } from "@/lib/utils"
 
@@ -8,12 +9,15 @@ import { cn } from "@/lib/utils"
    Used by the public page and both previews, so they always look the same. */
 export function FormFrame({
   formId,
+  design: given,
   title,
   inert,
   className,
   children,
 }: {
-  formId: string
+  /* Either the form's id (the design is read from this browser) or the design itself (the public page). */
+  formId?: string
+  design?: FormDesign | null
   /* Shown above the card when the form has no header of its own. */
   title?: string
   /* Makes the card read-only (used in the Design tab). */
@@ -21,7 +25,8 @@ export function FormFrame({
   className?: string
   children: React.ReactNode
 }) {
-  const design = useFormDesign(formId)
+  const stored = useFormDesign(formId ?? "")
+  const design = given !== undefined ? given : stored
 
   const showBadge = !design?.hideBadge
 

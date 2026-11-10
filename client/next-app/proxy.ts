@@ -1,7 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
 
-// Pages that need a signed-in user. The public form (/f/...), home page and auth pages stay open.
-const isPrivate = createRouteMatcher(["/dashboard(.*)", "/forms(.*)"])
+// Pages that need a signed-in user (the owner's preview included). The public form (/f/...), home page and auth pages stay open.
+const isPrivate = createRouteMatcher(["/dashboard(.*)", "/forms(.*)", "/preview(.*)"])
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPrivate(req)) await auth.protect()

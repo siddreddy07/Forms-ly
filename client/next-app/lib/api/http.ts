@@ -3,7 +3,9 @@
 import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000"
+import { API_URL } from "@/lib/api/config"
+
+export { API_URL }
 
 /* The server answered, but not with success. `status` is the HTTP code (400, 404, 409...). */
 export class ApiError extends Error {

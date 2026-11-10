@@ -3,14 +3,22 @@
 import Link from "next/link"
 import { EyeIcon, FileTextIcon, GlobeIcon, LockIcon } from "lucide-react"
 
-import { useFormMeta } from "@/components/forms/use-form-meta"
+import { useFormState } from "@/components/workspace/form-gate"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
 import type { FormStatus } from "@/lib/api/types"
 
-export function StatusBadge({ formId, fallback }: { formId: string; fallback: FormStatus }) {
-  const meta = useFormMeta(formId)
-  const label = !meta ? (fallback === "published" ? "Published" : "Draft") : !meta.published ? "Draft" : meta.access === "private" ? "Private" : "Published"
+export function StatusBadge({ fallback }: { fallback: FormStatus }) {
+  const { loaded } = useFormState()
+  const label = !loaded
+    ? fallback === "published"
+      ? "Published"
+      : "Draft"
+    : !loaded.publishInfo.published
+      ? "Draft"
+      : loaded.form.access === "private"
+        ? "Private"
+        : "Published"
   const Icon = label === "Draft" ? FileTextIcon : label === "Private" ? LockIcon : GlobeIcon
   /* On phones only the icon shows (the word is still there for screen readers). */
   return (
@@ -22,7 +30,7 @@ export function StatusBadge({ formId, fallback }: { formId: string; fallback: Fo
 }
 
 export function HeaderActions({ formId }: { formId: string }) {
-  const previewHref = `/f/${formId}?preview=1`
+  const previewHref = `/preview/${formId}`
 
   /* Publishing lives on the Share tab, so the header only has Preview. */
   return (

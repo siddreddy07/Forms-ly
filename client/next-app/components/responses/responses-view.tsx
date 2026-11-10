@@ -12,11 +12,9 @@ import { useResponses } from "@/components/responses/use-responses"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { readPublishedDoc } from "@/lib/api/mock-meta"
 import { deleteResponse } from "@/lib/api/mock-responses"
-import { getFormDocument } from "@/lib/api/mock-schemas"
-import { readServerRecord } from "@/lib/api/mock-server"
-import { createEmptyForm, isAnswerBlock, type Block } from "@/lib/schema"
+import { useFormGate } from "@/components/workspace/form-gate"
+import { isAnswerBlock, type Block } from "@/lib/schema"
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
 
@@ -28,6 +26,7 @@ function Page({ children }: { children: React.ReactNode }) {
 export function ResponsesView({ formId }: { formId: string }) {
   const responses = useResponses(formId)
   const [query, setQuery] = React.useState("")
+  const { doc } = useFormGate()
 
   /* Columns: the questions saved with each response (newest first), then any question the form has now that
      they miss, so the headers are always there. */
@@ -35,10 +34,9 @@ export function ResponsesView({ formId }: { formId: string }) {
     if (responses === null) return []
     const seen = new Map<string, Block>()
     for (const r of responses) for (const f of r.fields ?? []) if (!seen.has(f.id)) seen.set(f.id, f)
-    const doc = readPublishedDoc(formId) ?? readServerRecord(formId, getFormDocument(formId) ?? createEmptyForm()).doc
     for (const b of doc.steps.flatMap((st) => st.blocks)) if (isAnswerBlock(b.type) && !seen.has(b.id)) seen.set(b.id, b)
     return [...seen.values()]
-  }, [formId, responses])
+  }, [doc, responses])
 
   const rows = React.useMemo(() => {
     if (!responses) return []

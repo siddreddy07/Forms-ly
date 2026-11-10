@@ -11,10 +11,8 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Switch } from "@/components/ui/switch"
 import { demoResponses } from "@/lib/analytics/demo"
 import { averageDurationMs, formatDuration, inRange, perDay, summarize, type QuestionSummary, type Range } from "@/lib/analytics/compute"
-import { readPublishedDoc } from "@/lib/api/mock-meta"
-import { getFormDocument } from "@/lib/api/mock-schemas"
-import { readServerRecord } from "@/lib/api/mock-server"
-import { createEmptyForm, isAnswerBlock, type Block } from "@/lib/schema"
+import { useFormGate } from "@/components/workspace/form-gate"
+import { isAnswerBlock, type Block } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 
 const ranges: { id: Range; label: string }[] = [
@@ -145,11 +143,11 @@ export function AnalyticsView({ formId }: { formId: string }) {
   const [range, setRange] = React.useState<Range>("30")
   const [now] = React.useState(() => Date.now())
 
+  const { doc } = useFormGate()
   const blocks: Block[] = React.useMemo(() => {
     if (real === null) return []
-    const doc = readPublishedDoc(formId) ?? readServerRecord(formId, getFormDocument(formId) ?? createEmptyForm()).doc
     return doc.steps.flatMap((s) => s.blocks).filter((b) => isAnswerBlock(b.type))
-  }, [formId, real])
+  }, [doc, real])
 
   const all = React.useMemo(() => (demo ? demoResponses(formId, blocks, now) : (real ?? [])), [demo, formId, blocks, now, real])
   const rows = React.useMemo(() => inRange(all, range, now), [all, range, now])

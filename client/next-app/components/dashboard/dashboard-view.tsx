@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input"
 import { documentForTemplate, type FormListResponse, type FormResponse } from "@/lib/api/forms"
 import { useApi } from "@/lib/api/http"
 import type { FormSummary } from "@/lib/api/types"
+import { clearLocalForm } from "@/lib/local-form"
 
 function SearchField({
   value,
@@ -124,10 +125,12 @@ function DashboardView() {
       setAll((prev) => prev.filter((f) => f.id !== id))
       /* Deleting is permanent, so we wait a few seconds first. Undo cancels it. */
       const timer = setTimeout(() => {
-        api(`/forms/${id}`, { method: "DELETE" }).catch(() => {
-          setAll((prev) => (prev.some((f) => f.id === id) ? prev : [removed, ...prev]))
-          failed("delete the form")
-        })
+        api(`/forms/${id}`, { method: "DELETE" })
+          .then(() => clearLocalForm(id))
+          .catch(() => {
+            setAll((prev) => (prev.some((f) => f.id === id) ? prev : [removed, ...prev]))
+            failed("delete the form")
+          })
       }, 5000)
       toast("Form deleted", {
         duration: 5000,

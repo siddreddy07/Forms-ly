@@ -11,11 +11,8 @@ import { FormRenderer } from "@/components/renderer/form-renderer"
 import { DesignLoading } from "@/components/design/design-loading"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
-import { readPublishedDoc } from "@/lib/api/mock-meta"
-import { getFormDocument } from "@/lib/api/mock-schemas"
-import { readServerRecord } from "@/lib/api/mock-server"
+import { useFormGate } from "@/components/workspace/form-gate"
 import { designStyle, thankYouFor, type FormDesign } from "@/lib/api/mock-design"
-import { createEmptyForm } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 
 const tabs = [
@@ -112,12 +109,9 @@ export function DesignView({ formId }: { formId: string }) {
   const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<"form" | "thanks">("form")
   const barRef = React.useRef<HTMLDivElement>(null)
-  const doc = React.useMemo(
-    () => (design ? (readPublishedDoc(formId) ?? readServerRecord(formId, getFormDocument(formId) ?? createEmptyForm()).doc) : null),
-    [formId, design]
-  )
+  const { doc } = useFormGate()
 
-  if (!design || !doc) return <DesignLoading />
+  if (!design) return <DesignLoading />
 
   /* Opening the Thanks tab shows the thank-you page in the preview; any other tab shows the form. */
   const onTab = (t: TabId) => setView(t === "thanks" ? "thanks" : "form")
