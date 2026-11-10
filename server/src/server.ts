@@ -4,7 +4,10 @@ import express from "express"
 
 import { connectDB } from "./config/db.js"
 import { requireUser } from "./middleware/auth.js"
+import { requireDev } from "./middleware/dev.js"
+import devRoutes from "./routes/dev.routes.js"
 import formsRoutes from "./routes/forms.routes.js"
+import publicRoutes from "./routes/public.routes.js"
 import storageRoutes from "./routes/storage.routes.js"
 
 const app = express()
@@ -21,6 +24,10 @@ app.get("/me", requireUser, (req, res) => {
 })
 
 app.use("/forms", requireUser, formsRoutes)
+// No sign-in: what people filling in a form see
+app.use("/public", publicRoutes)
+// Developer tools: never in production, and only for the account in DEV_USER_ID
+if (process.env.NODE_ENV !== "production") app.use("/dev", requireUser, requireDev, devRoutes)
 app.use("/storage", requireUser, storageRoutes)
 
 // Any error nobody handled: reply with JSON instead of a web page

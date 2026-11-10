@@ -95,6 +95,9 @@ export const forms = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull().default("Untitled form"),
+    // The public link: /f/<slug>. Made once at the first publish and never changed. Stays with the form when it is
+    // unpublished (so the old link shows "not open yet" and nobody else can take it); freed when the form is deleted.
+    slug: text("slug").unique(),
     status: formStatus("status").notNull().default("draft"),
     access: formAccess("access").notNull().default("public"),
     // The latest saved builder document (steps, blocks...). The same JSON the frontend builder uses.
