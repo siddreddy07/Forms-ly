@@ -5,6 +5,7 @@ import express from "express"
 import { connectDB } from "./config/db.js"
 import { requireUser } from "./middleware/auth.js"
 import { requireDev } from "./middleware/dev.js"
+import aiRoutes from "./routes/ai.routes.js"
 import devRoutes from "./routes/dev.routes.js"
 import formsRoutes from "./routes/forms.routes.js"
 import publicRoutes from "./routes/public.routes.js"
@@ -29,6 +30,8 @@ app.use("/public", publicRoutes)
 // Developer tools: never in production, and only for the account in DEV_USER_ID
 if (process.env.NODE_ENV !== "production") app.use("/dev", requireUser, requireDev, devRoutes)
 app.use("/storage", requireUser, storageRoutes)
+// The signed-in person's own AI provider, model and key
+app.use("/ai", requireUser, aiRoutes)
 
 // Any error nobody handled: reply with JSON instead of a web page
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
