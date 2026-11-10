@@ -43,6 +43,18 @@ export async function storageFor(ownerId: string): Promise<Storage | null> {
   }
 }
 
+// Only the owner's own ImageKit account, or null when they haven't connected one (no fallback to ours)
+export async function ownStorage(ownerId: string): Promise<Storage | null> {
+  const [own] = await db.select().from(storageConnections).where(eq(storageConnections.userId, ownerId))
+  if (!own) return null
+  return {
+    source: "own",
+    client: new ImageKit({ privateKey: decryptSecret(own.privateKeyEnc) }),
+    publicKey: own.publicKey,
+    urlEndpoint: own.urlEndpoint,
+  }
+}
+
 // How many files this account has on OUR storage (the free limit counts these)
 export async function platformFilesUsed(ownerId: string): Promise<number> {
   const [row] = await db
@@ -98,11 +110,14 @@ export async function checkUploadedFile(
 }
 
 // Removes a file from ImageKit. A file that is already gone is fine.
-export async function deleteStoredFile(storage: Storage, fileId: string) {
+// Returns true if it was deleted now, false if it was already gone.
+export async function deleteStoredFile(storage: Storage, fileId: string): Promise<boolean> {
   try {
     await storage.client.files.delete(fileId)
+    return true
   } catch (error) {
-    if (!(error instanceof ImageKit.NotFoundError)) throw error
+    if (error instanceof ImageKit.NotFoundError) return false
+    throw error
   }
 }
 
@@ -141,4 +156,48 @@ export async function testConnection(keys: { privateKey: string; publicKey: stri
   } catch {
     return false
   }
+}
+
+// Deletes everything in a form's folder in this ImageKit account (uploads that were submitted or not), then the
+// folder itself. ImageKit's file listing can lag behind by several seconds, so the one-by-one pass may miss a very
+// recent upload; deleting the folder is what removes those. Returns how many files were deleted one by one, whether
+// the folder is gone, and a reason for each thing that would not delete.
+export async function deleteFormFiles(
+  storage: Storage,
+  formId: string
+): Promise<{ deleted: number; folderDeleted: boolean; failed: string[] }> {
+  const folder = `${formFolder(formId)}/`
+  const failed: string[] = []
+  let deleted = 0
+  const pageSize = 100
+
+  // Each round lists what is left. A file that fails to delete stays in the list, so it is only tried once.
+  const tried = new Set<string>()
+  for (let round = 0; round < 50; round++) {
+    const items = await storage.client.assets.list({ path: folder, type: "file", limit: pageSize })
+    const fresh = items.filter((item) => item.type === "file" && item.fileId && !tried.has(item.fileId))
+    if (fresh.length === 0) break
+    for (const item of fresh) {
+      tried.add(item.fileId!)
+      try {
+        if (await deleteStoredFile(storage, item.fileId!)) deleted++
+      } catch (error) {
+        failed.push(`${item.fileId}: ${error instanceof Error ? error.message : "Unknown error"}`)
+      }
+    }
+  }
+
+  let folderDeleted = false
+  if (failed.length === 0) {
+    try {
+      await storage.client.folders.delete({ folderPath: folder })
+      folderDeleted = true
+    } catch (error) {
+      // No folder means nothing was ever uploaded for this form, which is fine
+      if (!(error instanceof ImageKit.NotFoundError) && !(error instanceof ImageKit.BadRequestError)) {
+        failed.push(`folder: ${error instanceof Error ? error.message : "Unknown error"}`)
+      }
+    }
+  }
+  return { deleted, folderDeleted, failed }
 }
