@@ -100,6 +100,9 @@ export const forms = pgTable(
     slug: text("slug").unique(),
     status: formStatus("status").notNull().default("draft"),
     access: formAccess("access").notNull().default("public"),
+    // The 4 digit code that opens a private form. Made fresh every time the form is switched to private, and cleared
+    // when it goes public. The owner sees it in the Share tab, so it is stored as it is.
+    accessCode: text("access_code"),
     // The latest saved builder document (steps, blocks...). The same JSON the frontend builder uses.
     draft: jsonb("draft").$type<Record<string, unknown>>().notNull(),
     // Goes up by 1 on every save. If the number sent by the browser is old, we reply with a conflict.

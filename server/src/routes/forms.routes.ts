@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto"
 import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { Router } from "express"
 import rateLimit from "express-rate-limit"
@@ -77,7 +78,13 @@ function publishInfo(form: Form) {
     publishedVersion: published ? form.publishedVersion : null,
     publishedAt: published ? form.publishedAt : null,
     hasChanges: published && form.publishedVersion !== form.version,
+    accessCode: form.access === "private" ? form.accessCode : null,
   }
+}
+
+// A random 4 digit code, with leading zeros kept ("0042")
+function newAccessCode() {
+  return String(randomInt(0, 10_000)).padStart(4, "0")
 }
 
 // Postgres says 23505 when a unique value is already taken
@@ -163,10 +170,14 @@ router.post("/", async (req, res) => {
 // ---------- GET /forms/:id : one form with its document ----------
 
 router.get("/:id", async (req, res) => {
-  const form = await findOwnForm(req.user!.id, req.params.id)
+  let form = await findOwnForm(req.user!.id, req.params.id)
   if (!form) {
     res.status(404).json({ error: "Form not found" })
     return
+  }
+  if (form.access === "private" && !form.accessCode) {
+    const [fixed] = await db.update(forms).set({ accessCode: newAccessCode() }).where(eq(forms.id, form.id)).returning()
+    if (fixed) form = fixed
   }
   res.json({ form: summary(form), document: form.draft, version: form.version, design: form.design, publish: publishInfo(form) })
 })
@@ -266,8 +277,12 @@ router.patch("/:id", saveLimiter, async (req, res) => {
     res.status(404).json({ error: "Form not found" })
     return
   }
-  const [updated] = await db.update(forms).set(body.data).where(eq(forms.id, form.id)).returning()
-  res.json({ form: summary(updated!) })
+  // Every switch to private makes a new code (so an old one stops working); going public clears it.
+  const changes: Partial<typeof forms.$inferInsert> = { ...body.data }
+  if (body.data.access === "private" && (form.access !== "private" || !form.accessCode)) changes.accessCode = newAccessCode()
+  if (body.data.access === "public") changes.accessCode = null
+  const [updated] = await db.update(forms).set(changes).where(eq(forms.id, form.id)).returning()
+  res.json({ form: summary(updated!), publish: publishInfo(updated!) })
 })
 
 // ---------- POST /forms/:id/publish : make the saved form live ----------
