@@ -125,39 +125,39 @@ export function AnalyticsFixture() {
   )
 }
 
-/* Share: heading, then the sectioned panel (link, who can fill it in, embed, take offline) beside the status block.
-   Keep in step with components/forms/share-view.tsx. */
+/* Share (published): one narrow card of rows: status, link, public/private, embed, unpublish.
+   Keep in step with the published view in components/forms/share-view.tsx. */
 export function ShareFixture() {
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
-      <div className="mb-6 grid gap-1">
-        <h2 className="font-display text-2xl font-medium tracking-tight">Share</h2>
-        <p className="text-sm text-muted-foreground">Send people the link, or put the form on your own website.</p>
-      </div>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
-        <div className="grid content-start gap-4 rounded-xl bg-muted/40 p-5 max-lg:order-first">
-          <p className="font-display text-xl font-medium tracking-tight">Live</p>
-          <p className="text-sm text-muted-foreground">People can open the link and fill the form in.</p>
-          <p className="text-sm font-medium">Last published today at 4:30 pm</p>
-          <div className="h-9 w-full rounded-lg bg-muted" />
+    <div className="mx-auto w-full max-w-2xl px-4 py-5 sm:px-6 sm:py-8">
+      <div className="divide-y rounded-xl border bg-card">
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <p className="font-display text-lg font-medium tracking-tight">Live · published 2 hours ago</p>
+          <div className="h-8 w-24 rounded-lg bg-muted" />
         </div>
-        <div className="divide-y rounded-xl border bg-card">
-          <div className="grid gap-4 p-5 sm:p-6">
-            <h3 className="text-sm font-medium">Link</h3>
-            <p className="font-display text-xl font-medium tracking-tight sm:text-2xl">https://example.com/f/contact-form-k7x2q9</p>
-            <div className="h-9 w-44 rounded-lg bg-muted" />
+        <div className="grid gap-2 p-4 sm:p-5">
+          <h3 className="text-sm font-medium">Link</h3>
+          <div className="flex items-center gap-2">
+            <p className="min-w-0 flex-1 truncate rounded-lg border px-3 py-2 font-mono text-sm">https://example.com/f/contact-form-k7x2q9</p>
+            <div className="h-9 w-10 rounded-lg bg-muted sm:w-24" />
+            <div className="size-9 rounded-lg bg-muted" />
           </div>
-          <div className="grid gap-4 p-5 sm:p-6">
-            <h3 className="text-sm font-medium">Who can fill it in</h3>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="h-16 w-full rounded-lg bg-muted" />
-              <div className="h-16 w-full rounded-lg bg-muted" />
-            </div>
-          </div>
-          <div className="grid gap-4 p-5 sm:p-6">
+        </div>
+        <div className="grid gap-2 p-4 sm:p-5">
+          <h3 className="text-sm font-medium">Who can fill it in</h3>
+          <div className="h-11 w-full rounded-lg bg-muted" />
+          <p className="text-sm text-muted-foreground">Anyone with the link can fill it in.</p>
+        </div>
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <div className="grid gap-0.5">
             <h3 className="text-sm font-medium">Embed on your website</h3>
-            <div className="h-20 w-full rounded-lg bg-muted" />
+            <p className="text-sm text-muted-foreground">Copy the code and paste it into your page.</p>
           </div>
+          <div className="h-9 w-28 rounded-lg bg-muted" />
+        </div>
+        <div className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <p className="text-sm text-muted-foreground">Unpublish to take the form offline. The link stays yours.</p>
+          <div className="h-8 w-24 shrink-0 rounded-lg bg-muted" />
         </div>
       </div>
     </div>
