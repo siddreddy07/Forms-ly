@@ -46,6 +46,25 @@ export function useSave() {
 const DEBOUNCE_MS = 800
 const MAX_WAIT_MS = 5000
 
+/* Autosave to the server. Every save is a database write, so we save in bursts, not on every keystroke:
+   - IDLE: save once you stop editing for 2 seconds.
+   - MAX_WAIT: if you keep editing without a pause, still save at least every 15 seconds.
+   - Only one save runs at a time. Edits made while it runs are sent in the next one.
+   - If a save fails (offline, server error), retry after 3s, 6s, 12s... up to 60s, with a little randomness. */
+const AUTOSAVE_IDLE_MS = 2000
+const AUTOSAVE_MAX_WAIT_MS = 15000
+const RETRY_BASE_MS = 3000
+const RETRY_MAX_MS = 60000
+/* Browsers only let a request finish after the page closes if it is under about 64KB. */
+const KEEPALIVE_MAX_BYTES = 60000
+
+type SaveOptions = { silent?: boolean; keepalive?: boolean }
+type SaveOutcome =
+  | { ok: true; version: number; updatedAt: string; title?: string }
+  | { ok: false; reason: "conflict"; server: ServerRecord }
+  | { ok: false; reason: "retry"; waitSeconds: number | null }
+  | { ok: false; reason: "rejected" }
+
 const sameDoc = (a: FormDocument, b: FormDocument) => JSON.stringify(a) === JSON.stringify(b)
 
 /* Keeps a local backup while you edit, and sends the whole form to the backend on Save.
@@ -66,12 +85,18 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
   const savedDoc = React.useRef<FormDocument>(initial)
   const ready = React.useRef(false)
   const restoring = React.useRef(false)
-  const saving = React.useRef(false)
+  const inflight = React.useRef<Promise<boolean> | null>(null)
+  const autoTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoMaxTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+  const failures = React.useRef(0)
+  /* Autosave stays off while a conflict is waiting for an answer, or after the server rejected the form. */
+  const paused = React.useRef(false)
   const publishingRef = React.useRef(false)
   const statusRef = React.useRef<SaveStatus>("saved")
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const maxTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveRef = React.useRef<() => void>(() => {})
+  const saveRef = React.useRef<(options?: SaveOptions) => Promise<boolean>>(async () => false)
 
   const setStatusBoth = React.useCallback((s: SaveStatus) => {
     statusRef.current = s
@@ -105,6 +130,41 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     if (!maxTimer.current) maxTimer.current = setTimeout(flush, MAX_WAIT_MS)
   }, [flush])
 
+  const clearAutosave = React.useCallback(() => {
+    if (autoTimer.current) clearTimeout(autoTimer.current)
+    if (autoMaxTimer.current) clearTimeout(autoMaxTimer.current)
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    autoTimer.current = autoMaxTimer.current = retryTimer.current = null
+  }, [])
+
+  const autosaveNow = React.useCallback(() => {
+    clearAutosave()
+    if (!ready.current || restoring.current || paused.current) return
+    if (store.getState().doc === savedDoc.current) return
+    /* Offline: the local backup keeps the work safe, and we try again when the connection returns. */
+    if (typeof navigator !== "undefined" && !navigator.onLine) return
+    void saveRef.current({ silent: true })
+  }, [clearAutosave, store])
+
+  /* Called on every edit: wait for a pause, but never longer than the max wait. */
+  const scheduleAutosave = React.useCallback(() => {
+    if (!ready.current || restoring.current || paused.current) return
+    if (retryTimer.current) clearTimeout(retryTimer.current)
+    retryTimer.current = null
+    if (autoTimer.current) clearTimeout(autoTimer.current)
+    autoTimer.current = setTimeout(autosaveNow, AUTOSAVE_IDLE_MS)
+    if (!autoMaxTimer.current) autoMaxTimer.current = setTimeout(autosaveNow, AUTOSAVE_MAX_WAIT_MS)
+  }, [autosaveNow])
+
+  /* The page is being hidden or closed: send what we have right now. */
+  const autosaveBeforeLeaving = React.useCallback(() => {
+    clearAutosave()
+    if (!ready.current || restoring.current || paused.current) return
+    const doc = store.getState().doc
+    if (doc === savedDoc.current) return
+    void saveRef.current({ silent: true, keepalive: JSON.stringify(doc).length < KEEPALIVE_MAX_BYTES })
+  }, [clearAutosave, store])
+
   /* On open: pick up the latest saved copy, then offer any unsaved backup. */
   React.useEffect(() => {
     /* Browser storage can only be read after mount, so state is set here on purpose. */
@@ -131,63 +191,122 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
       if (state.doc === prev.doc || !ready.current) return
       if (statusRef.current !== "saving") setStatusBoth(state.doc === savedDoc.current ? "saved" : "dirty")
       if (!restoring.current) schedule()
+      scheduleAutosave()
     })
     const onHide = () => {
-      if (document.visibilityState === "hidden") flush()
+      if (document.visibilityState === "hidden") {
+        flush()
+        autosaveBeforeLeaving()
+      }
     }
+    const onPageHide = () => {
+      flush()
+      autosaveBeforeLeaving()
+    }
+    /* Back online: save whatever piled up while offline. */
+    const onOnline = () => autosaveNow()
     document.addEventListener("visibilitychange", onHide)
-    window.addEventListener("pagehide", flush)
+    window.addEventListener("pagehide", onPageHide)
+    window.addEventListener("online", onOnline)
     return () => {
       unsubscribe()
       document.removeEventListener("visibilitychange", onHide)
-      window.removeEventListener("pagehide", flush)
+      window.removeEventListener("pagehide", onPageHide)
+      window.removeEventListener("online", onOnline)
       flush()
+      /* Leaving the builder (for example to the Design tab): save what is left. */
+      autosaveBeforeLeaving()
     }
-  }, [store, schedule, flush, setStatusBoth])
+  }, [store, schedule, flush, setStatusBoth, scheduleAutosave, autosaveBeforeLeaving, autosaveNow])
 
-  const save = React.useCallback(async (): Promise<boolean> => {
-    if (saving.current) return false
-    const doc = store.getState().doc
-    if (doc === savedDoc.current && statusRef.current !== "error") return true
-    saving.current = true
-    setStatusBoth("saving")
-    let res: { ok: true; version: number; updatedAt: string; title?: string } | { ok: false; reason: "conflict"; server: ServerRecord } | { ok: false; reason: "network" }
-    try {
-      const saved = await api<SaveResponse>(`/forms/${formId}`, { method: "PUT", body: { document: doc, baseVersion: baseVersion.current } })
-      res = { ok: true, ...saved }
-    } catch (e) {
-      if (e instanceof ApiError && e.status === 409) {
-        const latest = e.body as ConflictResponse
-        res = { ok: false, reason: "conflict", server: { doc: parseForm(latest.document), version: latest.version, updatedAt: latest.updatedAt } }
-      } else {
-        res = { ok: false, reason: "network" }
+  /* One request to the server. Call save() instead, which makes sure only one runs at a time. */
+  const send = React.useCallback(
+    async (doc: FormDocument, keepalive: boolean): Promise<SaveOutcome> => {
+      try {
+        const saved = await api<SaveResponse>(`/forms/${formId}`, { method: "PUT", body: { document: doc, baseVersion: baseVersion.current }, keepalive })
+        return { ok: true, ...saved }
+      } catch (e) {
+        if (e instanceof ApiError) {
+          if (e.status === 409) {
+            const latest = e.body as ConflictResponse
+            return { ok: false, reason: "conflict", server: { doc: parseForm(latest.document), version: latest.version, updatedAt: latest.updatedAt } }
+          }
+          /* Too many saves, or a server problem: worth trying again later. Other errors (bad form, no access) won't fix themselves. */
+          if (e.status === 429 || e.status >= 500 || e.status === 408) return { ok: false, reason: "retry", waitSeconds: e.retryAfter }
+          return { ok: false, reason: "rejected" }
+        }
+        return { ok: false, reason: "retry", waitSeconds: null }
       }
-    }
-    saving.current = false
+    },
+    [api, formId]
+  )
 
-    if (res.ok) {
-      baseVersion.current = res.version
-      setVersion(res.version)
-      savedDoc.current = doc
-      setSavedAt(res.updatedAt)
-      gate.commit({ doc, version: res.version, updatedAt: res.updatedAt, title: res.title })
-      setStatusBoth(store.getState().doc === doc ? "saved" : "dirty")
-      flush()
-      toast.success("Saved")
-      return true
-    } else if (res.reason === "conflict") {
+  const doSave = React.useCallback(
+    async ({ silent = false, keepalive = false }: SaveOptions): Promise<boolean> => {
+      const doc = store.getState().doc
+      if (doc === savedDoc.current && statusRef.current !== "error") return true
+      setStatusBoth("saving")
+      const res = await send(doc, keepalive)
+
+      if (res.ok) {
+        failures.current = 0
+        baseVersion.current = res.version
+        setVersion(res.version)
+        savedDoc.current = doc
+        setSavedAt(res.updatedAt)
+        gate.commit({ doc, version: res.version, updatedAt: res.updatedAt, title: res.title })
+        const editedMeanwhile = store.getState().doc !== doc
+        setStatusBoth(editedMeanwhile ? "dirty" : "saved")
+        flush()
+        if (!silent) toast.success("Saved")
+        /* Edits made while this save ran go out in the next one. */
+        if (editedMeanwhile) scheduleAutosave()
+        return true
+      }
+
       setStatusBoth("error")
-      setConflict(res.server)
+      if (res.reason === "conflict") {
+        paused.current = true
+        setConflict(res.server)
+      } else if (res.reason === "rejected") {
+        paused.current = true
+        toast.error("This form couldn't be saved. Your changes are still here; try Save again.", { action: { label: "Retry", onClick: () => void saveRef.current() } })
+      } else {
+        /* Try again with growing gaps (3s, 6s, 12s... up to 60s) plus a little randomness, or when the server says. */
+        failures.current += 1
+        const backoff = Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (failures.current - 1))
+        const wait = res.waitSeconds ? res.waitSeconds * 1000 : backoff + Math.random() * 1000
+        if (retryTimer.current) clearTimeout(retryTimer.current)
+        retryTimer.current = setTimeout(autosaveNow, wait)
+        /* Say it once, not on every retry. */
+        if (!silent || failures.current === 1) {
+          toast.error("Couldn't save. We'll keep trying. Your changes are still here.", { action: { label: "Retry now", onClick: () => void saveRef.current() } })
+        }
+      }
       return false
-    } else {
-      setStatusBoth("error")
-      toast.error("Couldn't save. Check your connection and try again. Your changes are still here.", { action: { label: "Retry", onClick: () => saveRef.current() } })
-    }
-    return false
-  }, [store, formId, api, gate, flush, setStatusBoth])
+    },
+    [store, send, gate, flush, scheduleAutosave, autosaveNow, setStatusBoth]
+  )
+
+  /* Saves the form. If a save is already running, waits for it first, so two never run together. */
+  const save = React.useCallback(
+    async (options: SaveOptions = {}): Promise<boolean> => {
+      /* Clicking Save (or publishing) always tries again, even after a failure. */
+      if (!options.silent) paused.current = false
+      while (inflight.current) await inflight.current
+      const run = doSave(options)
+      inflight.current = run
+      try {
+        return await run
+      } finally {
+        if (inflight.current === run) inflight.current = null
+      }
+    },
+    [doSave]
+  )
 
   React.useEffect(() => {
-    saveRef.current = () => void save()
+    saveRef.current = (options) => save(options)
   }, [save])
 
   const publish = React.useCallback(async () => {
@@ -236,6 +355,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     setRestore(null)
     setStatusBoth("dirty")
     flush()
+    scheduleAutosave()
   }
 
   function discardBackup() {
@@ -253,6 +373,8 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     setSavedAt(conflict.updatedAt)
     setStatusBoth("saved")
     setConflict(null)
+    paused.current = false
+    failures.current = 0
     flush()
   }
 

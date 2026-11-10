@@ -25,13 +25,13 @@ function isTyping(target: EventTarget | null) {
   )
 }
 
-const saveLabel = { saved: "All changes saved", dirty: "Unsaved changes", drafted: "Not saved yet", saving: "Saving...", error: "Couldn't save" } as const
+const saveLabel = { saved: "All changes saved", dirty: "Saving soon", drafted: "Saving soon", saving: "Saving...", error: "Couldn't save" } as const
 const saveHint = {
   saved: "Everything you've done is saved.",
-  dirty: "You have changes that aren't saved yet.",
-  drafted: "Your changes are safe for now. Click Save to keep them.",
+  dirty: "Your changes save by themselves in a moment.",
+  drafted: "Your changes are safe on this device and save by themselves in a moment.",
   saving: "Saving your form...",
-  error: "Check your internet connection, then click Save again. Your changes are still here.",
+  error: "We'll keep trying. Your changes are still here. You can also click Save to try now.",
 } as const
 
 function SaveControls() {
