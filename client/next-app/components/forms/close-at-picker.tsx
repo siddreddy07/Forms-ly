@@ -1,108 +1,166 @@
 "use client"
 
 import * as React from "react"
-import { format } from "date-fns"
-import { ChevronDownIcon, XIcon } from "lucide-react"
+import { XIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CalendarDatePicker } from "@/components/ui/calendar-date-picker"
+import WheelPicker, { type WheelColumn } from "@/components/ui/wheel-picker"
 import { useFormGate } from "@/components/workspace/form-gate"
 
-/* A new date starts at the end of that day; the time field can move it earlier. */
-const DEFAULT_TIME = "23:59:00"
+type TimeParts = { hour: string; minute: string; period: string }
 
-function timeOf(value: string | null) {
+/* A new date starts at the end of that day; the wheel can move it earlier. */
+const DEFAULT_TIME: TimeParts = { hour: "11", minute: "59", period: "pm" }
+const MIN_LEAD_MS = 60 * 60 * 1000
+
+/* Explicit 1–12 and 00–59 values, so the label the wheel shows is the value we save. */
+const TIME_COLUMNS: WheelColumn[] = [
+  {
+    id: "hour",
+    label: "Hours",
+    loop: true,
+    className: "w-9",
+    options: Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) })),
+  },
+  {
+    id: "minute",
+    label: "Minutes",
+    loop: true,
+    className: "w-9",
+    options: Array.from({ length: 60 }, (_, i) => ({
+      value: String(i).padStart(2, "0"),
+      label: String(i).padStart(2, "0"),
+    })),
+  },
+  {
+    id: "period",
+    label: "AM or PM",
+    className: "w-9",
+    options: [
+      { value: "am", label: "AM" },
+      { value: "pm", label: "PM" },
+    ],
+  },
+]
+
+function timeParts(value: string | null): TimeParts {
   if (!value) return DEFAULT_TIME
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? DEFAULT_TIME : format(date, "HH:mm:ss")
+  const at = new Date(value)
+  if (Number.isNaN(at.getTime())) return DEFAULT_TIME
+  const hours = at.getHours()
+  return {
+    hour: String(hours % 12 === 0 ? 12 : hours % 12),
+    minute: String(at.getMinutes()).padStart(2, "0"),
+    period: hours < 12 ? "am" : "pm",
+  }
 }
 
-/* The Settings tab's closing date and time. The date opens a calendar, the time is a normal time field.
-   Every change saves at once; publishing is what makes it the live closing time. */
+function combine(day: Date, time: TimeParts) {
+  const at = new Date(day)
+  const hour = (Number(time.hour) % 12) + (time.period === "pm" ? 12 : 0)
+  at.setHours(hour, Number(time.minute), 0, 0)
+  return at
+}
+
+/* A closing time has to be at least an hour away, so nobody can close a form on someone mid-answer. */
+function tooSoon(at: Date) {
+  return at.getTime() < Date.now() + MIN_LEAD_MS
+}
+
+/* The Settings tab's closing date and time. Edits stay local until Save is pressed; publishing is what makes the
+   saved time live. */
 export function CloseAtPicker() {
   const { settings, setSettings } = useFormGate()
-  const [open, setOpen] = React.useState(false)
-  /* The saved value is the source of truth; the draft only holds a time that is still being typed. */
-  const date = settings.closeAt ? new Date(settings.closeAt) : undefined
-  const [timeDraft, setTimeDraft] = React.useState<string | null>(null)
-  const time = timeDraft ?? timeOf(settings.closeAt)
+  const [date, setDate] = React.useState<Date | undefined>(() =>
+    settings.closeAt ? new Date(settings.closeAt) : undefined
+  )
+  const [time, setTime] = React.useState<TimeParts>(() => timeParts(settings.closeAt))
+  const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle")
 
-  function save(nextDate: Date | undefined, nextTime: string) {
-    if (!nextDate) {
-      void setSettings({ ...settings, closeAt: null })
-      return
-    }
-    const [hours = 0, minutes = 0, seconds = 0] = nextTime.split(":").map(Number)
-    const at = new Date(nextDate)
-    at.setHours(hours, minutes, seconds, 0)
-    void setSettings({ ...settings, closeAt: at.toISOString() })
-  }
+  /* The calendar can't go before today, and the wheel is checked against the one-hour minimum. */
+  const minDate = React.useMemo(() => {
+    const day = new Date()
+    day.setHours(0, 0, 0, 0)
+    return day
+  }, [])
+
+  const draftAt = date ? combine(date, time) : null
+  const savedAt = settings.closeAt ? new Date(settings.closeAt) : null
+  const dirty =
+    draftAt && savedAt ? Math.abs(draftAt.getTime() - savedAt.getTime()) >= 60_000 : draftAt !== savedAt
+  const error = dirty && draftAt && tooSoon(draftAt) ? "Pick a time at least 1 hour from now." : null
 
   function pickDate(next: Date | undefined) {
-    setOpen(false)
-    save(next, time)
+    if (!next) {
+      clear()
+      return
+    }
+    const day = new Date(next)
+    day.setHours(0, 0, 0, 0)
+    if (day.getTime() < minDate.getTime()) return
+    setDate(next)
+    setStatus("idle")
   }
 
-  function pickTime(raw: string) {
-    setTimeDraft(raw)
-    /* Browsers can send a half-typed time; only save a complete one. */
-    if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) save(date, raw.length === 5 ? `${raw}:00` : raw)
+  function pickTime(next: Record<string, string>) {
+    setTime(next as TimeParts)
+    setStatus("idle")
   }
 
   function clear() {
-    setTimeDraft(null)
-    void setSettings({ ...settings, closeAt: null })
+    setDate(undefined)
+    setTime(DEFAULT_TIME)
+    setStatus("idle")
+  }
+
+  async function save() {
+    if (draftAt && tooSoon(draftAt)) return
+    setStatus("saving")
+    const ok = await setSettings({ ...settings, closeAt: draftAt ? draftAt.toISOString() : null })
+    setStatus(ok ? "saved" : "error")
   }
 
   return (
-    <FieldGroup className="flex-row flex-wrap items-end gap-2">
-      <Field className="w-40">
-        <FieldLabel htmlFor="close-date">Date</FieldLabel>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger
-            render={
-              <Button variant="outline" id="close-date" className="w-full justify-between font-normal">
-                {date ? format(date, "PPP") : "Select date"}
-                <ChevronDownIcon data-icon="inline-end" />
-              </Button>
-            }
-          />
-          <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={date}
-              captionLayout="dropdown"
-              defaultMonth={date}
-              onSelect={pickDate}
-            />
-          </PopoverContent>
-        </Popover>
-      </Field>
-      <Field className="w-28">
-        <FieldLabel htmlFor="close-time">Time</FieldLabel>
-        <Input
-          type="time"
-          id="close-time"
-          step="1"
-          value={time}
-          disabled={!date}
-          onChange={(e) => pickTime(e.target.value)}
-          onBlur={() => {
-            if (date && time !== timeOf(settings.closeAt)) save(date, time)
-            setTimeDraft(null)
-          }}
-          className="appearance-none bg-background [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-calendar-picker-indicator]:appearance-none"
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <CalendarDatePicker
+          id="close-date"
+          value={date}
+          minValue={minDate}
+          onChange={pickDate}
+          className="w-32 sm:w-42"
         />
-      </Field>
-      {date && (
-        <Button variant="ghost" size="sm" onClick={clear}>
-          <XIcon data-icon="inline-start" />
-          Clear
+        <WheelPicker
+          columns={TIME_COLUMNS}
+          value={time}
+          onValueChange={pickTime}
+          label="Closing time"
+          visibleRows={1}
+          className="w-32 rounded-lg border-border bg-muted/40 px-2 dark:border-border dark:bg-muted/20"
+        />
+        {date && (
+          <Button variant="ghost" size="sm" onClick={clear} disabled={status === "saving"}>
+            <XIcon data-icon="inline-start" />
+            Clear
+          </Button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button size="sm" onClick={save} disabled={!dirty || status === "saving" || !!error}>
+          {status === "saving" ? "Saving…" : "Save"}
         </Button>
-      )}
-    </FieldGroup>
+        {error ? (
+          <p className="text-xs text-destructive">{error}</p>
+        ) : status === "error" ? (
+          <p className="text-xs text-destructive">Couldn&apos;t save. Try again.</p>
+        ) : status === "saved" ? (
+          <p className="text-xs text-muted-foreground">Saved</p>
+        ) : dirty ? (
+          <p className="text-xs text-muted-foreground">Unsaved change</p>
+        ) : null}
+      </div>
+    </div>
   )
 }

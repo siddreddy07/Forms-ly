@@ -14,7 +14,7 @@ export function SettingsView({ formId }: { formId: string }) {
       <h2 className="font-display text-xl font-medium tracking-tight sm:text-2xl">Settings</h2>
 
       <div className="divide-y rounded-xl border bg-card">
-        <SettingRow inline title="Closes" hint="Stop taking answers at a date and time. Publish the change to make it live.">
+        <SettingRow title="Closes" hint="Stop taking answers at a date and time. Publish the change to make it live.">
           <CloseAtPicker />
         </SettingRow>
         <SettingRow inline title="Appearance" hint="Light, dark, or follow your device.">
