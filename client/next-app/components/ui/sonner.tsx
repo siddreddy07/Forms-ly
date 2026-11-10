@@ -13,16 +13,16 @@ const Toaster = ({ ...props }: ToasterProps) => {
       className="toaster group"
       icons={{
         success: (
-          <CircleCheckIcon className="size-4" />
+          <CircleCheckIcon className="size-[1.1rem]" />
         ),
         info: (
-          <InfoIcon className="size-4" />
+          <InfoIcon className="size-[1.1rem]" />
         ),
         warning: (
-          <TriangleAlertIcon className="size-4" />
+          <TriangleAlertIcon className="size-[1.1rem]" />
         ),
         error: (
-          <OctagonXIcon className="size-4" />
+          <OctagonXIcon className="size-[1.1rem]" />
         ),
         loading: (
           <Loader2Icon className="size-4 animate-spin" />
@@ -30,10 +30,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "var(--popover)",
+          "--normal-bg": "transparent",
           "--normal-text": "var(--popover-foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius)",
+          "--normal-border": "transparent",
+          "--border-radius": "1.5rem",
+          "--width": "min(23rem, calc(100vw - 2rem))",
         } as React.CSSProperties
       }
       toastOptions={{
