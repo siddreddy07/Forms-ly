@@ -49,7 +49,7 @@ function Digits() {
         <span className="font-display text-5xl font-semibold leading-none sm:text-6xl">4</span>
       </span>
       <span className={ring} style={{ borderColor: "#ffb000", ["--d" as string]: "110ms" }}>
-        <span className="aspect-square w-[58%] rounded-full border-[0.55rem] border-[#f5f2ec]" />
+        <span className="aspect-square w-[58%] rounded-full border-[0.55rem] border-foreground" />
       </span>
       <span className={ring} style={{ borderColor: "#3f7bff", ["--d" as string]: "220ms" }}>
         <span className="font-display text-5xl font-semibold leading-none sm:text-6xl">4</span>
@@ -61,7 +61,7 @@ function Digits() {
 /* The controller body: the right-hand side is where the buttons are. */
 function PadBody() {
   return (
-    <svg viewBox="0 0 600 380" aria-hidden="true" className="absolute inset-0 size-full drop-shadow-[0_30px_40px_rgba(0,0,0,0.55)]">
+    <svg viewBox="0 0 600 380" aria-hidden="true" className="absolute inset-0 size-full drop-shadow-[0_30px_40px_rgba(0,0,0,0.3)] dark:drop-shadow-[0_30px_40px_rgba(0,0,0,0.55)]">
       <defs>
         <linearGradient id="nf-body" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#34343b" />
@@ -110,21 +110,21 @@ export function NotFoundScene({ title, text }: { title: string; text: string }) 
   }
 
   return (
-    <div className="relative isolate min-h-svh overflow-hidden bg-[#101012] text-[#f5f2ec]">
+    <div className="relative isolate min-h-svh overflow-hidden bg-background text-foreground">
       {/* The stage: a hairline grid and two diagonals, like a level editor. */}
       <div
         aria-hidden="true"
         className="absolute inset-0 -z-10 opacity-100"
         style={{
           backgroundImage:
-            "linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px)",
+            "linear-gradient(to right, color-mix(in oklab, currentColor 8%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, currentColor 8%, transparent) 1px, transparent 1px)",
           backgroundSize: "clamp(120px, 16vw, 240px) clamp(120px, 16vw, 240px)",
           backgroundPosition: "center",
         }}
       />
       <svg aria-hidden="true" className="absolute inset-0 -z-10 size-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-        <line x1="0" y1="0" x2="100" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="0.15" vectorEffect="non-scaling-stroke" />
-        <line x1="100" y1="0" x2="0" y2="100" stroke="rgba(255,255,255,0.05)" strokeWidth="0.15" vectorEffect="non-scaling-stroke" />
+        <line x1="0" y1="0" x2="100" y2="100" stroke="currentColor" strokeOpacity="0.07" strokeWidth="0.15" vectorEffect="non-scaling-stroke" />
+        <line x1="100" y1="0" x2="0" y2="100" stroke="currentColor" strokeOpacity="0.07" strokeWidth="0.15" vectorEffect="non-scaling-stroke" />
       </svg>
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_70%_60%,rgba(63,123,255,0.10),transparent_60%)]" />
 
@@ -132,7 +132,7 @@ export function NotFoundScene({ title, text }: { title: string; text: string }) 
         <header>
           <Link
             href="/"
-            className="inline-block rounded-md font-display text-lg font-medium tracking-tight outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f5f2ec]"
+            className="inline-block rounded-md font-display text-lg font-medium tracking-tight outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           >
             {brand.name}
           </Link>
@@ -143,7 +143,7 @@ export function NotFoundScene({ title, text }: { title: string; text: string }) 
             <Digits />
             <div className="grid max-w-md gap-3">
               <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">{title}</h1>
-              <p className="text-base leading-relaxed text-[#b4b2b8]">{text}</p>
+              <p className="text-base leading-relaxed text-muted-foreground">{text}</p>
             </div>
 
             {/* The prompts: what each button does, as a game would show them. */}
@@ -161,9 +161,9 @@ export function NotFoundScene({ title, text }: { title: string; text: string }) 
                   </>
                 )
                 const className = cn(
-                  "flex min-h-12 items-center gap-3 rounded-full border border-white/12 px-3 pr-4 text-left text-sm font-medium outline-none transition-colors",
-                  "hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f5f2ec]",
-                  hot === pad.kind && "bg-white/10"
+                  "flex min-h-12 items-center gap-3 rounded-full border border-foreground/15 px-3 pr-4 text-left text-sm font-medium outline-none transition-colors",
+                  "hover:bg-foreground/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  hot === pad.kind && "bg-foreground/10"
                 )
                 const events = {
                   onPointerEnter: () => setHot(pad.kind),

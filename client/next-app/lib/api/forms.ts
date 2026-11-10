@@ -1,3 +1,4 @@
+import { API_URL } from "@/lib/api/config"
 import {
   createClientIntake,
   createCafeApplication,
@@ -17,6 +18,8 @@ export type PublishInfo = {
   publishedVersion: number | null
   publishedAt: string | null
   hasChanges: boolean
+  /* The 4 digit code that opens the form while it is private. Only the owner's own routes send it. */
+  accessCode: string | null
 }
 export type FormWithDocument = {
   form: import("@/lib/api/types").FormSummary
@@ -32,6 +35,20 @@ export type PublicFormResponse =
   | { state: "unpublished" }
   | { state: "private" }
   | { state: "live"; title: string; document: unknown; design: unknown; version: number }
+/* Opens a private form with its code. Answers the live form, or null for a wrong code (or if the request fails). */
+export async function unlockForm(slug: string, code: string): Promise<PublicFormResponse | null> {
+  try {
+    const res = await fetch(`${API_URL}/public/forms/${encodeURIComponent(slug)}/unlock`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ code }),
+      cache: "no-store",
+    })
+    return res.ok ? ((await res.json()) as PublicFormResponse) : null
+  } catch {
+    return null
+  }
+}
 export type SaveResponse = { version: number; updatedAt: string; title?: string }
 export type ConflictResponse = { document: unknown; version: number; updatedAt: string }
 

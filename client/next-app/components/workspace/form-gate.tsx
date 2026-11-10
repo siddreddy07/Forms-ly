@@ -179,7 +179,9 @@ export function FormGate({ formId, children }: { formId: string; children: React
       const before = loadedRef.current?.form.access ?? "public"
       setLoaded((prev) => (prev ? { ...prev, form: { ...prev.form, access } } : prev))
       try {
-        await api(`/forms/${formId}`, { method: "PATCH", body: { access } })
+        /* A new code is made on the server each time it goes private, so take the publish info it sends back. */
+        const res = await api<PublishResponse>(`/forms/${formId}`, { method: "PATCH", body: { access } })
+        setLoaded((prev) => (prev ? { ...prev, publishInfo: res.publish } : prev))
         return true
       } catch {
         setLoaded((prev) => (prev ? { ...prev, form: { ...prev.form, access: before } } : prev))

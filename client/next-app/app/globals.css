@@ -289,6 +289,23 @@
 .nf-drop { animation: nf-drop 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--d, 0ms); }
 .nf-float { animation: nf-float 7s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
-  .nf-drop, .nf-float { animation: none; }
+  .nf-drop, .nf-float, .nf-redact, .nf-shackle, .nf-hand { animation: none; }
 }
+
+/* ---------- Private / not-open page (components/not-found/closed-scene.tsx) ---------- */
+/* The black bars wipe across each question once, then the padlock snaps shut. */
+@keyframes nf-redact {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes nf-shackle {
+  0% { transform: translateY(-14px); }
+  60% { transform: translateY(-14px); }
+  80% { transform: translateY(2px); }
+  100% { transform: none; }
+}
+@keyframes nf-hand { to { transform: rotate(360deg); } }
+.nf-redact { animation: nf-redact 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--d, 0ms) + 250ms); }
+.nf-shackle { animation: nf-shackle 1.4s ease-out 0.9s both; }
+.nf-hand { transform-origin: 60px 60px; animation: nf-hand 24s linear infinite; }
 
