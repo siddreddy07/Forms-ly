@@ -33,15 +33,23 @@ export function parseMeta(raw: string | null, fallbackPublished: boolean): FormM
   const base: FormMeta = { published: fallbackPublished, publishedAt: null, publishedVersion: fallbackPublished ? 1 : null, access: "public" }
   if (!raw) return base
   try {
-    return { ...base, ...(JSON.parse(raw) as Partial<FormMeta>) }
+    const stored = JSON.parse(raw) as Partial<FormMeta> & { accessChosen?: boolean }
+    const { accessChosen, ...rest } = stored
+    void accessChosen
+    return { ...base, ...rest }
   } catch {
     return base
   }
 }
 
-function write(formId: string, meta: FormMeta) {
+function write(formId: string, meta: FormMeta, accessChosen?: boolean) {
   try {
-    window.localStorage.setItem(metaKey(formId), JSON.stringify(meta))
+    let chosen = accessChosen
+    if (chosen === undefined) {
+      const prev = window.localStorage.getItem(metaKey(formId))
+      chosen = prev ? !!(JSON.parse(prev) as { accessChosen?: boolean }).accessChosen : false
+    }
+    window.localStorage.setItem(metaKey(formId), JSON.stringify({ ...meta, accessChosen: chosen }))
   } catch {
     /* storage unavailable: nothing to persist */
   }
@@ -71,7 +79,7 @@ export function unpublishForm(formId: string) {
 }
 
 export function setAccess(formId: string, access: Access) {
-  write(formId, { ...current(formId, false), access })
+  write(formId, { ...current(formId, false), access }, true)
 }
 
 export function readPublishedDoc(formId: string): FormDocument | null {

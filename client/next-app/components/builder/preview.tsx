@@ -20,7 +20,7 @@ export function PreviewPane({ onExit }: { onExit: () => void }) {
       </div>
       <div className="min-h-[calc(100svh-7.5rem)] bg-muted/40 px-3 py-6 pb-28 sm:px-6 sm:py-10 lg:h-[calc(100svh-9.75rem)] lg:overflow-y-auto lg:pb-10">
         <div className="mx-auto w-full max-w-xl rounded-xl border bg-card p-5 sm:p-8">
-          <FormRenderer form={doc} allowAnother />
+          <FormRenderer form={doc} allowAnother showEmptyBanner />
         </div>
       </div>
     </div>

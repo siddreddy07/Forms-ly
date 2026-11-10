@@ -24,6 +24,8 @@ type Props = {
   thankYou?: { title: string; message?: string }
   /* Preview only: lets the tester fill the form in again. */
   allowAnother?: boolean
+  /* Builder preview only: show the banner slot even when no image is set. */
+  showEmptyBanner?: boolean
 }
 
 function FormRenderer({
@@ -33,6 +35,7 @@ function FormRenderer({
   submitLabel = "Submit",
   thankYou = { title: "Thank you", message: "Your response has been recorded." },
   allowAnother,
+  showEmptyBanner,
 }: Props) {
   const [answers, setAnswers] = React.useState<Answers>({})
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -139,7 +142,7 @@ function FormRenderer({
 
   return (
     <form ref={root} data-form-renderer noValidate onSubmit={handleSubmit} className="scroll-mt-20">
-      {index === 0 && <FormHeaderView header={form.header} />}
+      {index === 0 && <FormHeaderView header={form.header} showEmptyBanner={showEmptyBanner && !!form.header} />}
 
       {multi && (
         <div className="mb-6">

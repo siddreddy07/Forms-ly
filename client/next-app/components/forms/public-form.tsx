@@ -23,7 +23,7 @@ export function PublicForm({ formId, sample, preview }: { formId: string; sample
     return (
       <>
         <p className="mb-4 rounded-lg border bg-muted/40 p-2.5 text-center text-sm">Preview. Only you can see this.</p>
-        <FormRenderer form={readServerRecord(formId, sample).doc} allowAnother />
+        <FormRenderer form={readServerRecord(formId, sample).doc} allowAnother showEmptyBanner />
       </>
     )
   }

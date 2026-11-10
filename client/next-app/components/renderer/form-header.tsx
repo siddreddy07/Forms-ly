@@ -4,9 +4,19 @@ import type { FormHeader } from "@/lib/schema"
 
 /* Banner, title and description shown once above the first step.
    `editing` keeps empty parts visible as placeholders inside the builder. */
-export function FormHeaderView({ header, editing = false }: { header?: FormHeader; editing?: boolean }) {
+export function FormHeaderView({
+  header,
+  editing = false,
+  showEmptyBanner = false,
+}: {
+  header?: FormHeader
+  editing?: boolean
+  /* Preview: keep the banner slot visible when no image has been added yet. */
+  showEmptyBanner?: boolean
+}) {
   const { banner, title, description } = header ?? {}
-  if (!editing && !banner && !title && !description) return null
+  if (!editing && !showEmptyBanner && !banner && !title && !description) return null
+  const slot = editing || showEmptyBanner
 
   return (
     <div className="mb-6 grid gap-3">
@@ -14,7 +24,7 @@ export function FormHeaderView({ header, editing = false }: { header?: FormHeade
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={banner} alt="" className="aspect-[3/1] w-full rounded-lg object-cover" />
       ) : (
-        editing && (
+        slot && (
           <div className="flex aspect-[3/1] w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed bg-muted/60 text-muted-foreground">
             <ImageIcon className="size-7" aria-hidden="true" />
             <span className="text-xs">Add a banner</span>

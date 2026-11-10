@@ -1,13 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { CopyIcon, ExternalLinkIcon, LockIcon } from "lucide-react"
+import { CopyIcon, ExternalLinkIcon, GlobeIcon, LockIcon } from "lucide-react"
 import { toast } from "sonner"
 
 import { useFormMeta, useOrigin } from "@/components/forms/use-form-meta"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { publishForm, unpublishForm } from "@/lib/api/mock-meta"
+import { Switch } from "@/components/ui/switch"
+import { publishForm, setAccess, unpublishForm } from "@/lib/api/mock-meta"
 import { getFormDocument } from "@/lib/api/mock-schemas"
 import { readServerRecord } from "@/lib/api/mock-server"
 import { readDraft } from "@/lib/builder/draft"
@@ -76,22 +77,31 @@ export function ShareView({ formId }: { formId: string }) {
 
   return (
     <div className="mx-auto grid max-w-2xl gap-5 rounded-xl border p-6">
-      {meta.access === "private" && (
-        <p className="flex items-start gap-2 rounded-lg border bg-muted/40 p-3 text-sm">
-          <LockIcon className="mt-0.5 size-4 shrink-0" />
-          <span>
-            This form is private, so the link won&apos;t open for others.{" "}
-            <Link href={`/forms/${formId}/settings`} className="underline">
-              Change in Settings
-            </Link>
-          </span>
-        </p>
+      <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-sm font-medium">
+            {meta.access === "public" ? <GlobeIcon className="size-4" /> : <LockIcon className="size-4" />}
+            {meta.access === "public" ? "Public" : "Private"}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {meta.access === "public" ? "Anyone with the link can fill it in." : "Nobody can open the link. Only you can preview."}
+          </p>
+        </div>
+        <Switch
+          aria-label="Make this form private"
+          checked={meta.access === "private"}
+          onCheckedChange={(on) => setAccess(formId, on ? "private" : "public")}
+        />
+      </div>
+      {meta.access === "public" && (
+        <>
+          <CopyField label="Link" value={url} />
+          <Link href={`/f/${formId}`} target="_blank" className={buttonVariants({ variant: "outline", className: "w-fit" })}>
+            <ExternalLinkIcon /> Open form
+          </Link>
+          <CopyField label="Embed on your website" value={embed} multiline />
+        </>
       )}
-      <CopyField label="Link" value={url} />
-      <Link href={`/f/${formId}`} target="_blank" className={buttonVariants({ variant: "outline", className: "w-fit" })}>
-        <ExternalLinkIcon /> Open form
-      </Link>
-      <CopyField label="Embed on your website" value={embed} multiline />
       <div className="border-t pt-4">
         <Button
           variant="ghost"
