@@ -7,6 +7,7 @@ import { z } from "zod"
 import { db } from "../config/db.js"
 import { makeSlug } from "../libs/slug.js"
 import { buildAnalytics } from "../libs/analytics.js"
+import { formFilterFields, nextFilterFields } from "../libs/filterFields.js"
 import type { Block } from "../libs/answers.js"
 import { files, formVersions, forms, responses, type Form } from "../schema.js"
 import { deleteStoredFile, ownStorage, platformStorage, privateFileUrl } from "../services/storage.js"
@@ -357,13 +358,16 @@ router.post("/:id/publish", publishLimiter, async (req, res) => {
 
   await claimSlug(form)
 
+  // The fields responses can be filtered by, with this version added to what earlier versions had
+  const filterFields = await nextFilterFields(form, form.draft)
+
   const updated = await db.transaction(async (tx) => {
     // The same saved version always has the same content, so a copy that already exists is the right one
     await tx.insert(formVersions).values({ formId: form.id, version: form.version, document: form.draft }).onConflictDoNothing()
     // Only if nobody saved in between; otherwise nothing changes and we answer with a conflict below
     const [row] = await tx
       .update(forms)
-      .set({ status: "published", publishedVersion: form.version, publishedAt: new Date() })
+      .set({ status: "published", publishedVersion: form.version, publishedAt: new Date(), filterFields })
       .where(and(eq(forms.id, form.id), eq(forms.version, form.version)))
       .returning()
     return row
@@ -503,7 +507,8 @@ router.get("/:id/responses", async (req, res) => {
     return { ...r, answers, formId: form.id }
   })
 
-  res.json({ items, total, publishedAt: form.publishedAt, createdAt: form.createdAt })
+  // The fields the filter panel (and later the AI) can use: current questions plus ones older responses still answer
+  res.json({ items, total, publishedAt: form.publishedAt, createdAt: form.createdAt, filterFields: await formFilterFields(form) })
 })
 
 // ---------- GET /forms/:id/analytics?range=7|30|all&tz=<minutes> : numbers only ----------

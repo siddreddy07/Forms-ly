@@ -8,7 +8,7 @@ export type Block = {
   type: string
   label?: string
   required?: boolean
-  options?: { id: string }[]
+  options?: { id: string; label?: string }[]
   validation?: { minLength?: number; maxLength?: number; min?: number; max?: number; pattern?: string; maxFiles?: number }
   scale?: { min: number; max: number }
   logic?: { action: string; when: { match: string; conditions: Condition[] } }[]
