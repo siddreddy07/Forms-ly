@@ -15,13 +15,11 @@ import {
   backgroundOpacities,
   fonts,
   isWebUrl,
-  logoSizes,
   radii,
   setAccent,
   setBackground,
   setFont,
   setHideBadge,
-  setLogo,
   setRadius,
   setThankYou,
   setWidth,
@@ -201,12 +199,10 @@ export function ColourPanel({ formId, design }: PanelProps) {
   )
 }
 
-/* ---------- Brand: accent colour, logo, corners, width, badge (Pro) ---------- */
+/* ---------- Brand: accent colour, corners, width, badge (Pro) ---------- */
 
 export function BrandPanel({ formId, design }: PanelProps) {
   const pro = useIsPro()
-  const logo = design.logo
-  const logoUrlBad = !!logo?.url && !isWebUrl(logo.url)
 
   return (
     <div className="grid gap-5">
@@ -261,46 +257,6 @@ export function BrandPanel({ formId, design }: PanelProps) {
             />
           </label>
         </div>
-      </Section>
-
-      <Section title="Logo" pro>
-        <Input
-          type="url"
-          inputMode="url"
-          aria-label="Logo image address"
-          placeholder="https://your-site.com/logo.png"
-          disabled={!pro}
-          value={logo?.url ?? ""}
-          onChange={(e) => {
-            const url = e.target.value
-            if (!url && !logo) return
-            setLogo(formId, url ? { url, size: logo?.size ?? "md", align: logo?.align ?? "left" } : null)
-          }}
-          aria-invalid={logoUrlBad}
-          className="h-9"
-        />
-        {logoUrlBad && <p className="-mt-1 text-xs text-destructive">Use a full web address starting with https://</p>}
-        <FieldRow label="Size">
-          <Segmented
-            label="Logo size"
-            value={logo?.size ?? "md"}
-            options={logoSizes}
-            disabled={!pro || !logo}
-            onChange={(size) => logo && setLogo(formId, { ...logo, size })}
-          />
-        </FieldRow>
-        <FieldRow label="Position">
-          <Segmented
-            label="Logo position"
-            value={logo?.align ?? "left"}
-            options={[
-              { id: "left", label: "Left" },
-              { id: "center", label: "Centre" },
-            ]}
-            disabled={!pro || !logo}
-            onChange={(align) => logo && setLogo(formId, { ...logo, align })}
-          />
-        </FieldRow>
       </Section>
 
       <Section title="Shape" pro>

@@ -3,7 +3,7 @@ import type { CSSProperties } from "react"
 /* The form's design (Design tab). The UI reads it from this browser's storage so every change shows instantly,
    and this file also sends it to the backend (PATCH /forms/:id { design }) a moment after you stop changing it.
    The backend copy is the one that lasts: it is loaded back in when a form opens (see hydrateDesign).
-   Free: page background colour. Pro: everything else (accent colour, logo, font, corners, width,
+   Free: page background colour. Pro: everything else (accent colour, font, corners, width,
    thank-you page, badge). The Pro parts are only applied when the account is Pro. */
 
 export const backgroundColors = [
@@ -55,16 +55,6 @@ export const widths = [
 ] as const
 export type WidthId = (typeof widths)[number]["id"]
 
-export const logoSizes = [
-  { id: "sm", label: "Small", height: "2rem" },
-  { id: "md", label: "Medium", height: "3rem" },
-  { id: "lg", label: "Large", height: "4.5rem" },
-] as const
-export type LogoSizeId = (typeof logoSizes)[number]["id"]
-export type LogoAlign = "left" | "center"
-
-export type Logo = { url: string; size: LogoSizeId; align: LogoAlign }
-
 /* What people see after they submit. Empty strings mean "use the default". */
 export type ThankYou = { title: string; message: string; buttonLabel: string; buttonUrl: string; redirectUrl: string }
 
@@ -74,7 +64,6 @@ export type FormDesign = {
   /* Pro from here on */
   font: FontId
   accent: string | null
-  logo: Logo | null
   radius: RadiusId
   width: WidthId
   thankYou: ThankYou
@@ -87,7 +76,6 @@ export const defaultDesign: FormDesign = {
   background: null,
   font: "sans",
   accent: null,
-  logo: null,
   radius: "md",
   width: "normal",
   thankYou: defaultThankYou,
@@ -180,20 +168,11 @@ export function parseDesign(raw: string | null): FormDesign {
     const d = JSON.parse(raw) as Partial<FormDesign>
     const b = d.background
     const bgOk = b && backgroundColors.some((c) => c.id === b.color) && (backgroundOpacities as readonly number[]).includes(b.opacity)
-    const logo = d.logo
     const t = (d.thankYou ?? {}) as Partial<ThankYou>
     return {
       background: bgOk ? b! : null,
       font: fonts.some((f) => f.id === d.font) ? d.font! : "sans",
       accent: isHex(d.accent) ? d.accent : null,
-      logo:
-        logo && typeof logo.url === "string"
-          ? {
-              url: logo.url,
-              size: logoSizes.some((s) => s.id === logo.size) ? logo.size : "md",
-              align: logo.align === "center" ? "center" : "left",
-            }
-          : null,
       radius: radii.some((r) => r.id === d.radius) ? d.radius! : "md",
       width: widths.some((w) => w.id === d.width) ? d.width! : "normal",
       thankYou: {
@@ -380,7 +359,6 @@ function update(formId: string, patch: Partial<FormDesign>) {
 export const setBackground = (formId: string, background: FormDesign["background"]) => update(formId, { background })
 export const setFont = (formId: string, font: FontId) => update(formId, { font })
 export const setAccent = (formId: string, accent: string | null) => update(formId, { accent })
-export const setLogo = (formId: string, logo: Logo | null) => update(formId, { logo })
 export const setRadius = (formId: string, radius: RadiusId) => update(formId, { radius })
 export const setWidth = (formId: string, width: WidthId) => update(formId, { width })
 export const setHideBadge = (formId: string, hideBadge: boolean) => update(formId, { hideBadge })
