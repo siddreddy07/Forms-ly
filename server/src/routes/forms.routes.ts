@@ -77,16 +77,18 @@ async function findOwnForm(userId: string, id: string) {
 }
 
 // ---------- GET /forms : all my forms ----------
-// ?archived=true shows the archived ones instead
+// ?archived=true shows only the archived ones, ?archived=all shows everything (each has an "archived" flag)
 
 router.get("/", async (req, res) => {
-  const archived = req.query.archived === "true"
+  const which = req.query.archived // "true", "all", or nothing (live forms only)
 
   const rows = await db
     .select({ form: forms, responseCount: count(responses.id) })
     .from(forms)
     .leftJoin(responses, eq(responses.formId, forms.id))
-    .where(and(eq(forms.ownerId, req.user!.id), archived ? isNotNull(forms.archivedAt) : isNull(forms.archivedAt)))
+    .where(
+      and(eq(forms.ownerId, req.user!.id), which === "all" ? undefined : which === "true" ? isNotNull(forms.archivedAt) : isNull(forms.archivedAt))
+    )
     .groupBy(forms.id)
     .orderBy(desc(forms.updatedAt))
 
