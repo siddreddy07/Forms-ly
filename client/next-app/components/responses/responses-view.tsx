@@ -8,11 +8,10 @@ import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { toast } from "sonner"
 
 import { csvEscape, answerText } from "@/components/responses/format"
-import { useResponses } from "@/components/responses/use-responses"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { deleteResponse } from "@/lib/api/mock-responses"
+import { useResponses } from "@/lib/api/responses"
 import { useFormGate } from "@/components/workspace/form-gate"
 import { isAnswerBlock, type Block } from "@/lib/schema"
 
@@ -24,7 +23,8 @@ function Page({ children }: { children: React.ReactNode }) {
 
 /* Like a spreadsheet: one row per response, one column per question. */
 export function ResponsesView({ formId }: { formId: string }) {
-  const responses = useResponses(formId)
+  const { state, retry, remove } = useResponses(formId)
+  const responses = state.status === "ready" ? state.items : null
   const [query, setQuery] = React.useState("")
   const { doc } = useFormGate()
 
@@ -46,8 +46,22 @@ export function ResponsesView({ formId }: { formId: string }) {
       .filter(({ r, cells }) => !q || cells.some((c) => c.toLowerCase().includes(q)) || when(r.submittedAt).toLowerCase().includes(q))
   }, [responses, columns, query])
 
-  if (responses === null) {
+  if (state.status === "loading") {
     return <ResponsesSkeleton />
+  }
+
+  if (state.status === "error" || responses === null) {
+    return (
+      <Page>
+        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
+          <h2 className="font-display text-2xl font-medium tracking-tight">Couldn&apos;t load responses</h2>
+          <p className="mt-1 max-w-xs text-sm text-muted-foreground">Check your connection and try again.</p>
+          <Button variant="outline" className="mt-4" onClick={retry}>
+            Try again
+          </Button>
+        </div>
+      </Page>
+    )
   }
 
   if (responses.length === 0) {
@@ -75,7 +89,7 @@ export function ResponsesView({ formId }: { formId: string }) {
     URL.revokeObjectURL(url)
   }
 
-  const total = responses.length
+  const total = state.total
 
   return (
     <Page>
@@ -109,7 +123,7 @@ export function ResponsesView({ formId }: { formId: string }) {
           <li key={r.id} className="rounded-xl border bg-card">
             <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
               <span className="text-xs text-muted-foreground">{when(r.submittedAt)}</span>
-              <DeleteButton formId={formId} id={r.id} />
+              <DeleteButton onDelete={() => remove(r.id)} />
             </div>
             <dl className="grid gap-3 p-4">
               {columns.map((c, ci) =>
@@ -154,7 +168,7 @@ export function ResponsesView({ formId }: { formId: string }) {
                   </TableCell>
                 ))}
                 <TableCell className="px-4 py-2 text-right">
-                  <DeleteButton formId={formId} id={r.id} />
+                  <DeleteButton onDelete={() => remove(r.id)} />
                 </TableCell>
               </TableRow>
             ))}
@@ -172,16 +186,16 @@ export function ResponsesView({ formId }: { formId: string }) {
   )
 }
 
-function DeleteButton({ formId, id }: { formId: string; id: string }) {
+function DeleteButton({ onDelete }: { onDelete: () => Promise<boolean> }) {
   return (
     <Button
       variant="ghost"
       size="icon-sm"
       aria-label="Delete this response"
       className="text-muted-foreground hover:text-destructive"
-      onClick={() => {
-        deleteResponse(formId, id)
-        toast("Response deleted")
+      onClick={async () => {
+        if (await onDelete()) toast("Response deleted")
+        else toast.error("Couldn't delete the response")
       }}
     >
       <Trash2 animateOnHover size={16} className="size-4" />

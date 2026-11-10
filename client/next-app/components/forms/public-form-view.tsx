@@ -15,6 +15,8 @@ import { parseForm } from "@/lib/schema"
 export function PublicFormView({ slug, data: first }: { slug: string; data: PublicFormResponse }) {
   /* A private form turns into the live form once the right code is put in. */
   const [data, setData] = React.useState(first)
+  /* The code they put in, kept so their answers can be sent with it. */
+  const [code, setCode] = React.useState<string | undefined>()
   const live = data.state === "live" ? data : null
   const doc = React.useMemo(() => (live ? parseForm(live.document) : null), [live])
   const design = React.useMemo(() => parseDesign(live ? JSON.stringify(live.design ?? {}) : null), [live])
@@ -22,7 +24,10 @@ export function PublicFormView({ slug, data: first }: { slug: string; data: Publ
   if (!live) {
     return data.state === "private" ? (
       <ClosedScene variant="private">
-        <PrivateGate slug={slug} onOpen={setData} />
+        <PrivateGate slug={slug} onOpen={(next, typed) => {
+          setData(next)
+          setCode(typed)
+        }} />
       </ClosedScene>
     ) : (
       <ClosedScene variant="unpublished" />
@@ -32,7 +37,7 @@ export function PublicFormView({ slug, data: first }: { slug: string; data: Publ
   return (
     <ThemedBackground as="main" design={design} className="min-h-svh px-4 py-8 sm:py-16">
       <FormFrame design={design} title={doc && !doc.header?.title ? live.title : undefined}>
-        {doc && <PublicForm slug={slug} doc={doc} design={design} version={live.version} />}
+        {doc && <PublicForm slug={slug} doc={doc} design={design} version={live.version} code={code} />}
       </FormFrame>
     </ThemedBackground>
   )

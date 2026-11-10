@@ -1,4 +1,4 @@
-import type { StoredResponse } from "@/lib/api/mock-responses"
+import type { StoredResponse } from "@/lib/api/responses"
 import { isAnswerBlock, type Answers, type Block } from "@/lib/schema"
 
 /* Made-up responses so the Analytics tab has something to show before the backend exists.

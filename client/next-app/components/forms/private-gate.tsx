@@ -12,7 +12,7 @@ const LENGTH = 4
 
 /* Four boxes for the form's code. It sends itself when the fourth digit goes in. A wrong code shows a toast and clears
    the boxes; the page stays as it is so they can try again. */
-export function PrivateGate({ slug, onOpen }: { slug: string; onOpen: (data: PublicFormResponse) => void }) {
+export function PrivateGate({ slug, onOpen }: { slug: string; onOpen: (data: PublicFormResponse, code: string) => void }) {
   const [digits, setDigits] = React.useState<string[]>(() => Array(LENGTH).fill(""))
   const [checking, setChecking] = React.useState(false)
   const refs = React.useRef<(HTMLInputElement | null)[]>([])
@@ -23,7 +23,7 @@ export function PrivateGate({ slug, onOpen }: { slug: string; onOpen: (data: Pub
     setChecking(true)
     const data = await unlockForm(slug, code)
     if (data && data.state === "live") {
-      onOpen(data)
+      onOpen(data, code)
       return
     }
     setChecking(false)

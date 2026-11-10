@@ -1,4 +1,4 @@
-import type { StoredResponse } from "@/lib/api/mock-responses"
+import type { StoredResponse } from "@/lib/api/responses"
 import type { Block } from "@/lib/schema"
 
 /* Pure functions: responses in, numbers out. The real backend will return the same shapes. */

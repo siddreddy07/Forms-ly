@@ -442,4 +442,45 @@ router.delete("/:id", async (req, res) => {
   res.status(204).end()
 })
 
+// ---------- GET /forms/:id/responses : everything people submitted, newest first ----------
+// Used by the Responses and Analytics tabs. Capped so one huge form cannot flood the browser.
+
+const RESPONSE_CAP = 5000
+
+router.get("/:id/responses", async (req, res) => {
+  const form = await findOwnForm(req.user!.id, req.params.id)
+  if (!form) {
+    res.status(404).json({ error: "Form not found" })
+    return
+  }
+  const rows = await db
+    .select({
+      id: responses.id,
+      formVersion: responses.formVersion,
+      fields: responses.fields,
+      answers: responses.answers,
+      durationMs: responses.durationMs,
+      device: responses.device,
+      submittedAt: responses.submittedAt,
+    })
+    .from(responses)
+    .where(eq(responses.formId, form.id))
+    .orderBy(desc(responses.submittedAt))
+    .limit(RESPONSE_CAP)
+  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
+  res.json({ items: rows.map((r) => ({ ...r, formId: form.id })), total, publishedAt: form.publishedAt, createdAt: form.createdAt })
+})
+
+// ---------- DELETE /forms/:id/responses/:rid : remove one response ----------
+
+router.delete("/:id/responses/:rid", async (req, res) => {
+  const form = await findOwnForm(req.user!.id, req.params.id)
+  if (!form || !idSchema.safeParse(req.params.rid).success) {
+    res.status(404).json({ error: "Response not found" })
+    return
+  }
+  await db.delete(responses).where(and(eq(responses.id, req.params.rid), eq(responses.formId, form.id)))
+  res.status(204).end()
+})
+
 export default router

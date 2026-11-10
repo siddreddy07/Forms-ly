@@ -6,9 +6,9 @@ import * as React from "react"
 import { BarChart3Icon } from "lucide-react"
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
-import { useResponses } from "@/components/responses/use-responses"
+import { Button } from "@/components/ui/button"
+import { useResponses, type StoredResponse } from "@/lib/api/responses"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import { Switch } from "@/components/ui/switch"
 import { demoResponses } from "@/lib/analytics/demo"
 import { averageDurationMs, formatDuration, inRange, perDay, summarize, type QuestionSummary, type Range } from "@/lib/analytics/compute"
 import { useFormGate } from "@/components/workspace/form-gate"
@@ -137,38 +137,62 @@ function QuestionCard({ s, total }: { s: QuestionSummary; total: number }) {
   )
 }
 
+const DAY = 86_400_000
+
 export function AnalyticsView({ formId }: { formId: string }) {
-  const real = useResponses(formId)
-  const [demo, setDemo] = React.useState(true)
+  const { state, retry } = useResponses(formId)
+  const [demo, setDemo] = React.useState(false)
   const [range, setRange] = React.useState<Range>("30")
   const [now] = React.useState(() => Date.now())
 
   const { doc } = useFormGate()
-  const blocks: Block[] = React.useMemo(() => {
-    if (real === null) return []
-    return doc.steps.flatMap((s) => s.blocks).filter((b) => isAnswerBlock(b.type))
-  }, [doc, real])
+  const blocks: Block[] = React.useMemo(() => doc.steps.flatMap((s) => s.blocks).filter((b) => isAnswerBlock(b.type)), [doc])
 
-  const all = React.useMemo(() => (demo ? demoResponses(formId, blocks, now) : (real ?? [])), [demo, formId, blocks, now, real])
+  const real = React.useMemo<StoredResponse[]>(() => (state.status === "ready" ? state.items : []), [state])
+  const all = React.useMemo(() => (demo ? demoResponses(formId, blocks, now) : real), [demo, formId, blocks, now, real])
   const rows = React.useMemo(() => inRange(all, range, now), [all, range, now])
   const series = React.useMemo(() => perDay(rows, range, now), [rows, range, now])
   const questions = React.useMemo(() => blocks.map((b) => summarize(b, rows)), [blocks, rows])
-  const last7 = React.useMemo(() => inRange(all, "7", now).length, [all, now])
-  const days = Math.max(series.length, 1)
 
-  if (real === null) return <AnalyticsSkeleton />
+  /* Days the form has been live: from the day it was published (or its first answer) until today. */
+  const since = React.useMemo(() => {
+    if (demo) return now - 30 * DAY
+    if (state.status !== "ready") return now
+    if (state.publishedAt) return new Date(state.publishedAt).getTime()
+    const first = state.items.at(-1)
+    return first ? new Date(first.submittedAt).getTime() : now
+  }, [demo, now, state])
+  const daysActive = Math.max(1, Math.ceil((now - since) / DAY))
+
+  if (state.status === "loading") return <AnalyticsSkeleton />
+
+  if (state.status === "error") {
+    return (
+      <div className="mx-auto grid w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
+          <h3 className="font-display text-2xl font-medium tracking-tight">Couldn&apos;t load analytics</h3>
+          <p className="mt-1 max-w-xs text-sm text-muted-foreground">Check your connection and try again.</p>
+          <Button variant="outline" className="mt-4" onClick={retry}>
+            Try again
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="font-display text-2xl font-medium tracking-tight">Analytics</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">How your form is doing.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{demo ? "Showing demo data, not your real answers." : "How your form is doing."}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Switch size="sm" checked={demo} onCheckedChange={setDemo} aria-label="Show demo data" /> Demo data
-          </label>
+          {demo && (
+            <Button variant="ghost" size="sm" onClick={() => setDemo(false)}>
+              Hide demo
+            </Button>
+          )}
           <div role="radiogroup" aria-label="Date range" className="grid grid-cols-3 rounded-lg bg-muted p-0.5">
             {ranges.map((r) => (
               <button
@@ -195,18 +219,20 @@ export function AnalyticsView({ formId }: { formId: string }) {
             <BarChart3Icon className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
           <h3 className="mt-4 font-display text-2xl font-medium tracking-tight">No data yet</h3>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">Charts appear once people submit your form. Turn on demo data to preview them.</p>
+          <p className="mt-1 max-w-xs text-sm text-muted-foreground">Charts appear once people submit your form.</p>
+          <Button variant="outline" className="mt-4" onClick={() => setDemo(true)}>
+            Preview with demo data
+          </Button>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Stat label="Responses" value={String(rows.length)} hint={range === "all" ? "All time" : `Last ${range} days`} />
-            <Stat label="Last 7 days" value={String(last7)} />
-            <Stat label="Per day" value={(rows.length / days).toFixed(1)} hint="Average" />
+          <div className="grid grid-cols-3 gap-3">
+            <Stat label="Responses" value={String(demo ? all.length : state.total)} hint={range === "all" ? "All time" : `${rows.length} in the last ${range} days`} />
+            <Stat label="Days active" value={String(daysActive)} hint={`Since ${new Date(since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`} />
             <Stat label="Time to complete" value={formatDuration(averageDurationMs(rows))} hint="Average" />
           </div>
 
-          <Card title="Responses over time">
+          <Card title="Responses per day">
             <OverTime data={series} />
           </Card>
 
