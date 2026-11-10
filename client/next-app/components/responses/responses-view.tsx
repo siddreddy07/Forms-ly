@@ -3,21 +3,24 @@
 import { ResponsesSkeleton } from "@/components/skeletons/tab-skeletons"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
 import { DownloadIcon, InboxIcon, PaperclipIcon, SearchIcon } from "lucide-react"
 import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { toast } from "sonner"
 
-import { csvEscape, answerText } from "@/components/responses/format"
+import { answerText } from "@/components/responses/format"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ResponseFilters } from "@/components/responses/filters"
-import { useResponses } from "@/lib/api/responses"
-import { activeCount, applyFilter, emptyFilter, fieldToBlock, type ResponseFilter } from "@/lib/responses/filter"
-import { useFormGate } from "@/components/workspace/form-gate"
-import { isAnswerBlock, type Block } from "@/lib/schema"
+import { exportResponsesCsv, useResponses } from "@/lib/api/responses"
+import { activeCount, emptyFilter, fieldToBlock, type ResponseFilter } from "@/lib/responses/filter"
+import type { Block } from "@/lib/schema"
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+
+/* A stable empty list, so the rows memo does not see a new array on every render while loading. */
+const NO_COLUMNS: Block[] = []
 
 type StoredFile = { name: string; url: string | null }
 
@@ -46,45 +49,43 @@ function Page({ children }: { children: React.ReactNode }) {
   return <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">{children}</div>
 }
 
-/* Like a spreadsheet: one row per response, one column per question. */
+/* Like a spreadsheet: one row per response, one column per question. The server does the searching, filtering and
+   paging, so what is on screen and what the CSV holds are built the same way. */
 export function ResponsesView({ formId }: { formId: string }) {
-  const { state, retry, remove } = useResponses(formId)
-  const responses = state.status === "ready" ? state.items : null
   const [query, setQuery] = React.useState("")
-  const { doc } = useFormGate()
+  const [search, setSearch] = React.useState("")
   const [filter, setFilter] = React.useState<ResponseFilter>(emptyFilter)
-  const [now] = React.useState(() => Date.now())
+  const [exporting, setExporting] = React.useState(false)
+  const { getToken } = useAuth()
+  const { state, retry, remove, loadMore, loadingMore } = useResponses(formId, { q: search, filter })
 
-  /* Columns: the questions saved with each response (newest first), then any question the form has now that
-     they miss, so the headers are always there. */
-  const columns: Block[] = React.useMemo(() => {
-    if (responses === null) return []
-    const seen = new Map<string, Block>()
-    for (const r of responses) for (const f of r.fields ?? []) if (!seen.has(f.id)) seen.set(f.id, f)
-    for (const b of doc.steps.flatMap((st) => st.blocks)) if (isAnswerBlock(b.type) && !seen.has(b.id)) seen.set(b.id, b)
-    return [...seen.values()]
-  }, [doc, responses])
+  /* Wait for a pause in typing before asking the server, so every letter is not a request. */
+  React.useEffect(() => {
+    const timer = setTimeout(() => setSearch(query.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [query])
 
-  /* What the table can be filtered by, from the server: current questions plus ones older responses still answer. */
+  /* The questions as columns, from the server: current questions plus ones older responses still answer. */
+  const columns = state.status === "ready" ? state.columns : NO_COLUMNS
+
+  /* What the filter panel can filter by, from the server. */
   const filterColumns = React.useMemo(() => (state.status === "ready" ? state.filterFields.map(fieldToBlock) : []), [state])
 
-  /* The responses that pass the filter panel. The search box then narrows these further. */
-  const passing = React.useMemo(() => (responses ? applyFilter(responses, filter, filterColumns, now) : []), [responses, filter, filterColumns, now])
+  /* Rows are already filtered and searched by the server; number them from newest (the highest) down. */
   const rows = React.useMemo(() => {
-    if (!responses) return []
-    const q = query.trim().toLowerCase()
-    const ids = new Set(passing.map((r) => r.id))
-    return responses
-      .map((r, i) => ({ r, number: responses.length - i, cells: columns.map((c) => answerText(c, r.answers[c.id])) }))
-      .filter(({ r }) => ids.has(r.id))
-      .filter(({ r, cells }) => !q || cells.some((c) => c.toLowerCase().includes(q)) || when(r.submittedAt).toLowerCase().includes(q))
-  }, [responses, passing, columns, query])
+    if (state.status !== "ready") return []
+    return state.items.map((r, i) => ({
+      r,
+      number: state.total - i,
+      cells: columns.map((c) => answerText(c, r.answers[c.id])),
+    }))
+  }, [state, columns])
 
   if (state.status === "loading") {
     return <ResponsesSkeleton />
   }
 
-  if (state.status === "error" || responses === null) {
+  if (state.status === "error") {
     return (
       <Page>
         <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
@@ -98,7 +99,7 @@ export function ResponsesView({ formId }: { formId: string }) {
     )
   }
 
-  if (responses.length === 0) {
+  if (state.allTotal === 0) {
     return (
       <Page>
         <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
@@ -112,18 +113,19 @@ export function ResponsesView({ formId }: { formId: string }) {
     )
   }
 
-  function exportCsv() {
-    const head = ["Submitted", ...columns.map((c) => c.label || "Untitled question")]
-    const lines = [head, ...rows.map(({ r, cells }) => [r.submittedAt, ...cells])].map((l) => l.map(csvEscape).join(","))
-    const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }))
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `responses-${formId}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
+  const narrowed = activeCount(filter) > 0 || search !== ""
+  const nothingMatches = rows.length === 0
 
-  const total = state.total
+  async function exportCsv() {
+    setExporting(true)
+    try {
+      const token = await getToken()
+      const result = await exportResponsesCsv(token, formId, { q: search, filter })
+      if (!result.ok) toast.error(result.message)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   return (
     <Page>
@@ -131,7 +133,9 @@ export function ResponsesView({ formId }: { formId: string }) {
         <div>
           <h2 className="font-display text-2xl font-medium tracking-tight">Responses</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {rows.length === total && activeCount(filter) === 0 ? `${total} ${total === 1 ? "response" : "responses"}` : `Showing ${rows.length} of ${total}`}
+            {narrowed
+              ? `Showing ${state.items.length} of ${state.total} matching`
+              : `${state.allTotal} ${state.allTotal === 1 ? "response" : "responses"}`}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -146,39 +150,16 @@ export function ResponsesView({ formId }: { formId: string }) {
             />
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
-            <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={passing.length} />
-            <Button variant="outline" size="lg" onClick={exportCsv}>
-              <DownloadIcon /> Export CSV
+            <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={state.total} />
+            <Button variant="outline" size="lg" onClick={exportCsv} disabled={exporting}>
+              <DownloadIcon /> {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Phones: one card per response. */}
-      <ul className="grid gap-3 sm:hidden">
-        {rows.map(({ r, cells }) => (
-          <li key={r.id} className="rounded-xl border bg-card">
-            <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
-              <span className="text-xs text-muted-foreground">{when(r.submittedAt)}</span>
-              <DeleteButton onDelete={() => remove(r.id)} />
-            </div>
-            <dl className="grid gap-3 p-4">
-              {columns.map((c, ci) =>
-                cells[ci] ? (
-                  <div key={c.id} className="grid gap-0.5">
-                    <dt className="text-xs font-medium text-muted-foreground">{c.label || "Untitled question"}</dt>
-                    <dd className="break-words text-sm"><Answer block={c} value={r.answers[c.id]} text={cells[ci]} /></dd>
-                  </div>
-                ) : null
-              )}
-            </dl>
-          </li>
-        ))}
-        {rows.length === 0 && <li className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">Nothing matches your search or filters.</li>}
-      </ul>
-
-      {/* Larger screens: a table that scrolls sideways when there are many questions. */}
-      <div className="hidden overflow-hidden rounded-xl border bg-card sm:block">
+      {/* One table at every size: on a phone it scrolls sideways instead of turning into cards. */}
+      <div className="overflow-hidden rounded-xl border bg-card">
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
@@ -209,7 +190,7 @@ export function ResponsesView({ formId }: { formId: string }) {
                 </TableCell>
               </TableRow>
             ))}
-            {rows.length === 0 && (
+            {nothingMatches && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length + 3} className="px-4 py-12 text-center text-muted-foreground">
                   Nothing matches your search or filters.
@@ -219,6 +200,23 @@ export function ResponsesView({ formId }: { formId: string }) {
           </TableBody>
         </Table>
       </div>
+
+      {state.nextCursor ? (
+        <div className="grid justify-items-center gap-2">
+          <Button
+            variant="outline"
+            disabled={loadingMore}
+            onClick={async () => {
+              if (!(await loadMore())) toast.error("Couldn't load more responses")
+            }}
+          >
+            {loadingMore ? "Loading…" : "Load more"}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Showing {state.items.length} of {state.total}
+          </p>
+        </div>
+      ) : null}
     </Page>
   )
 }

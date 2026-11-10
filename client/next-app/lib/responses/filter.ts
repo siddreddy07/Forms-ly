@@ -1,12 +1,11 @@
 import { z } from "zod"
 
-import { answerText } from "@/components/responses/format"
-import type { FilterField, StoredResponse } from "@/lib/api/responses"
+import type { FilterField } from "@/lib/api/responses"
 import type { Block } from "@/lib/schema"
 
 /* A filter for the Responses table. People build it with the filter panel today; later the AI assistant will fill in
    the same shape from a sentence (server/src/tools/filterTool.ts has the matching schema, keep the two in step).
-   It is applied here in the browser, to the responses already loaded. */
+   The server applies it (server/src/libs/responseFilter.ts), to the responses in the database. */
 
 export const filterOps = ["contains", "is", "is_not", "any_of", "gt", "lt", "between", "empty", "not_empty"] as const
 export type FilterOp = (typeof filterOps)[number]
@@ -101,55 +100,4 @@ export function opsFor(block: Block): { op: FilterOp; label: string }[] {
         { op: "empty", label: "is not answered" },
       ]
   }
-}
-
-const blank = (v: unknown) => v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)
-
-function matchesCondition(c: FilterCondition, block: Block | undefined, answers: StoredResponse["answers"]): boolean {
-  /* A condition on a question that is gone matches nothing, instead of everything. */
-  if (!block) return false
-  const raw = answers[block.id]
-  if (c.op === "empty") return blank(raw)
-  if (c.op === "not_empty") return !blank(raw)
-  if (blank(raw)) return c.op === "is_not"
-
-  const first = c.values[0]
-  const num = typeof raw === "number" ? raw : Number(raw)
-  switch (c.op) {
-    case "contains":
-      return answerText(block, raw as never).toLowerCase().includes(String(first).toLowerCase())
-    case "is":
-      if (typeof raw === "number") return raw === Number(first)
-      if (typeof raw === "boolean") return raw === (first === true || first === "true")
-      return String(raw).toLowerCase() === String(first).toLowerCase()
-    case "is_not":
-      return String(raw).toLowerCase() !== String(first).toLowerCase()
-    case "any_of": {
-      const picked = Array.isArray(raw) ? (raw as string[]) : [String(raw)]
-      return picked.some((p) => c.values.includes(p))
-    }
-    case "gt":
-      return typeof raw === "string" && typeof first === "string" ? raw > first : num > Number(first)
-    case "lt":
-      return typeof raw === "string" && typeof first === "string" ? raw < first : num < Number(first)
-    case "between":
-      return num >= Number(c.values[0]) && num <= Number(c.values[1])
-    default:
-      return true
-  }
-}
-
-/* Keeps the responses that pass the filter. Dates and device always apply; the conditions follow "match". */
-export function applyFilter(responses: StoredResponse[], filter: ResponseFilter, columns: Block[], now: number): StoredResponse[] {
-  const byId = new Map(columns.map((b) => [b.id, b]))
-  const conditions = filter.conditions.filter(isComplete)
-  const from = filter.dateRange ? now - Number(filter.dateRange) * 86_400_000 : null
-
-  return responses.filter((r) => {
-    if (from !== null && new Date(r.submittedAt).getTime() < from) return false
-    if (filter.device && r.device !== filter.device) return false
-    if (conditions.length === 0) return true
-    const results = conditions.map((c) => matchesCondition(c, byId.get(c.questionId), r.answers))
-    return filter.match === "all" ? results.every(Boolean) : results.some(Boolean)
-  })
 }

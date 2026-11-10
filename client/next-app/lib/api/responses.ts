@@ -4,6 +4,7 @@ import * as React from "react"
 
 import { API_URL } from "@/lib/api/config"
 import { useApi } from "@/lib/api/http"
+import type { ResponseFilter } from "@/lib/responses/filter"
 import type { Answers, Block } from "@/lib/schema"
 
 /* What the backend sends for responses (see server/src/routes/forms.routes.ts and public.routes.ts).
@@ -108,17 +109,49 @@ export type FilterField = {
 export type ResponsesState =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "ready"; items: StoredResponse[]; total: number; publishedAt: string | null; createdAt: string; filterFields: FilterField[] }
+  | {
+      status: "ready"
+      items: StoredResponse[]
+      /* How many responses match the search and filter, across all pages. */
+      total: number
+      /* Every response for the form, whatever the search and filter. */
+      allTotal: number
+      nextCursor: string | null
+      /* The questions as columns, built by the server from every version that has responses. */
+      columns: Block[]
+      publishedAt: string | null
+      createdAt: string
+      filterFields: FilterField[]
+    }
 
-/* The signed-in owner's responses for one form, newest first, plus a way to delete one. */
-export function useResponses(formId: string) {
+type ResponsesPage = Omit<Extract<ResponsesState, { status: "ready" }>, "status">
+
+/* How many responses to ask for at a time. "Load more" fetches the next batch. */
+const PAGE_SIZE = 50
+
+/* The signed-in owner's responses for one form, newest first, plus a way to delete one.
+   The search and filter run on the server, so `total` and the pages always agree. */
+export function useResponses(formId: string, query: { q: string; filter: ResponseFilter }) {
   const api = useApi()
   const [state, setState] = React.useState<ResponsesState>({ status: "loading" })
   const [attempt, setAttempt] = React.useState(0)
+  const [loadingMore, setLoadingMore] = React.useState(false)
+  /* The filter is an object, so compare it by its contents, not by identity. */
+  const filterKey = JSON.stringify(query.filter)
+
+  const pagePath = React.useCallback(
+    (cursor?: string | null) => {
+      const params = new URLSearchParams({ limit: String(PAGE_SIZE), filter: filterKey })
+      if (query.q) params.set("q", query.q)
+      if (cursor) params.set("cursor", cursor)
+      return `/forms/${formId}/responses?${params.toString()}`
+    },
+    [formId, query.q, filterKey]
+  )
 
   React.useEffect(() => {
     let cancelled = false
-    api<{ items: StoredResponse[]; total: number; publishedAt: string | null; createdAt: string; filterFields: FilterField[] }>(`/forms/${formId}/responses`)
+    api<ResponsesPage>(pagePath())
       .then((data) => {
         if (!cancelled) setState({ status: "ready", ...data })
       })
@@ -128,12 +161,31 @@ export function useResponses(formId: string) {
     return () => {
       cancelled = true
     }
-  }, [api, formId, attempt])
+  }, [api, pagePath, attempt])
 
   const retry = React.useCallback(() => {
     setState({ status: "loading" })
     setAttempt((n) => n + 1)
   }, [])
+
+  /* Adds the next page. Returns false so the caller can show a message. */
+  const loadMore = React.useCallback(async () => {
+    if (state.status !== "ready" || !state.nextCursor || loadingMore) return false
+    setLoadingMore(true)
+    try {
+      const data = await api<ResponsesPage>(pagePath(state.nextCursor))
+      setState((s) => {
+        if (s.status !== "ready") return s
+        const seen = new Set(s.items.map((r) => r.id))
+        return { ...s, ...data, items: [...s.items, ...data.items.filter((r) => !seen.has(r.id))] }
+      })
+      return true
+    } catch {
+      return false
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [api, pagePath, state, loadingMore])
 
   /* Takes the row out straight away and puts it back if the server says no. */
   const remove = React.useCallback(
@@ -142,7 +194,12 @@ export function useResponses(formId: string) {
       setState((s) => {
         if (s.status !== "ready") return s
         removed = s.items.find((r) => r.id === id)
-        return { ...s, items: s.items.filter((r) => r.id !== id), total: Math.max(0, s.total - 1) }
+        return {
+          ...s,
+          items: s.items.filter((r) => r.id !== id),
+          total: Math.max(0, s.total - 1),
+          allTotal: Math.max(0, s.allTotal - 1),
+        }
       })
       try {
         await api(`/forms/${formId}/responses/${id}`, { method: "DELETE" })
@@ -150,7 +207,12 @@ export function useResponses(formId: string) {
       } catch {
         setState((s) =>
           s.status === "ready" && removed
-            ? { ...s, items: [...s.items, removed].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)), total: s.total + 1 }
+            ? {
+                ...s,
+                items: [...s.items, removed].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
+                total: s.total + 1,
+                allTotal: s.allTotal + 1,
+              }
             : s
         )
         return false
@@ -159,5 +221,34 @@ export function useResponses(formId: string) {
     [api, formId]
   )
 
-  return { state, retry, remove }
+  return { state, retry, remove, loadMore, loadingMore }
+}
+
+/* Downloads the CSV the server builds. Same search and filter as the table, but every page of it.
+   Uses fetch directly (not useApi) because the answer is a file, not JSON. */
+export async function exportResponsesCsv(
+  token: string | null,
+  formId: string,
+  query: { q: string; filter: ResponseFilter }
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const params = new URLSearchParams({ filter: JSON.stringify(query.filter) })
+  if (query.q) params.set("q", query.q)
+  try {
+    const res = await fetch(`${API_URL}/forms/${formId}/responses/export.csv?${params.toString()}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) return { ok: false, message: "Couldn't build the CSV. Try again." }
+    const blob = await res.blob()
+    const disposition = res.headers.get("content-disposition") ?? ""
+    const name = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? `responses-${formId}.csv`
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = name
+    a.click()
+    URL.revokeObjectURL(url)
+    return { ok: true }
+  } catch {
+    return { ok: false, message: "Couldn't download the CSV. Check your connection and try again." }
+  }
 }
