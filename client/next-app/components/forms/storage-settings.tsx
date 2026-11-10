@@ -6,9 +6,10 @@ import { toast } from "sonner"
 
 import { LoaderCircle } from "@/components/animate-ui/icons/loader-circle"
 import { ConnectStorageDialog } from "@/components/forms/connect-storage-dialog"
-import { StorageSkeleton } from "@/components/skeletons/tab-skeletons"
+import { SettingRow } from "@/components/forms/setting-row"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/lib/api/http"
 import type { OwnStorage, StorageStatus } from "@/lib/api/storage"
 import { brand } from "@/lib/brand"
@@ -62,11 +63,10 @@ export function StorageSettings() {
 
   if (failed) {
     return (
-      <section className="grid gap-3 rounded-xl border bg-card p-5">
-        <h3 className="text-base font-medium">File uploads</h3>
-        <p className="text-sm text-muted-foreground">Couldn&apos;t load your storage settings. Check your connection and try again.</p>
+      <SettingRow title="File uploads" hint="Couldn't load this. Check your connection.">
         <Button
           variant="outline"
+          size="sm"
           className="w-fit"
           onClick={() => {
             setFailed(false)
@@ -75,55 +75,53 @@ export function StorageSettings() {
         >
           Try again
         </Button>
-      </section>
+      </SettingRow>
     )
   }
 
-  if (!status) return <StorageSkeleton />
+  if (!status) {
+    return (
+      <section className="grid gap-2.5 p-4" aria-busy="true">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-9 w-full rounded-lg" />
+      </section>
+    )
+  }
 
   const { own, platform } = status
   const full = platform.used >= platform.limit
 
   return (
-    <section className="grid gap-4 rounded-xl border bg-card p-5">
-      <div>
-        <h3 className="text-base font-medium">File uploads</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Where files are kept when people attach them to your forms. Each file can be up to {MAX_UPLOAD_MB} MB. This applies to all your forms.
-        </p>
-      </div>
-
+    <SettingRow title="File uploads" hint={`Where files people attach to your forms are kept. Up to ${MAX_UPLOAD_MB} MB each.`}>
       {own ? (
-        <div className="grid gap-3">
-          <div className="flex items-start gap-3 rounded-lg border p-3">
-            <span className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background">
-              <CloudIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-            </span>
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <CloudIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             <div className="min-w-0">
               <p className="text-sm font-medium">Your ImageKit</p>
-              <p className="truncate text-sm text-muted-foreground" title={own.urlEndpoint}>
+              <p className="truncate text-xs text-muted-foreground" title={own.urlEndpoint}>
                 {own.urlEndpoint}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">Uploads go straight to your account, with no limit from us.</p>
             </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setConnecting(true)}>
-              Change keys
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" onClick={() => setConnecting(true)}>
+              Change
             </Button>
-            <Button variant="ghost" onClick={() => setDisconnecting(true)}>
+            <Button variant="ghost" size="sm" onClick={() => setDisconnecting(true)}>
               Disconnect
             </Button>
           </div>
         </div>
       ) : (
-        <div className="grid gap-3">
-          <div className="rounded-lg border p-3">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-sm font-medium">Free storage on {brand.name}</p>
-              <p className="text-sm tabular-nums text-muted-foreground">
+        <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-4">
+          <div className="grid gap-1.5 rounded-lg border px-3 py-2">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-medium">Free storage</span>
+              <span className="tabular-nums text-muted-foreground">
                 {platform.used} of {platform.limit} files
-              </p>
+              </span>
             </div>
             <div
               role="progressbar"
@@ -131,23 +129,21 @@ export function StorageSettings() {
               aria-valuemin={0}
               aria-valuemax={platform.limit}
               aria-valuenow={Math.min(platform.used, platform.limit)}
-              className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+              className="h-1 overflow-hidden rounded-full bg-muted"
             >
               <div
                 className={full ? "h-full rounded-full bg-destructive" : "h-full rounded-full bg-foreground"}
                 style={{ width: `${platform.limit ? Math.min(100, (platform.used / platform.limit) * 100) : 0}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {!platform.available
-                ? "Free storage isn't available right now. Connect your own ImageKit to accept files."
-                : full
-                  ? "You've used the free files. Connect your own ImageKit to keep accepting uploads."
-                  : "A small free allowance to try file uploads. Connect your own File Storage (ImageKit) for no limit."}
-            </p>
+            {(full || !platform.available) && (
+              <p className="text-xs text-muted-foreground">
+                {!platform.available ? "Free storage isn't available right now." : "Free files used up."} Connect your own ImageKit to keep accepting files.
+              </p>
+            )}
           </div>
-          <Button className="w-fit" variant={full || !platform.available ? "default" : "outline"} onClick={() => setConnecting(true)}>
-            Connect your ImageKit
+          <Button size="sm" className="h-9" variant={full || !platform.available ? "default" : "outline"} onClick={() => setConnecting(true)}>
+            Connect ImageKit
           </Button>
         </div>
       )}
@@ -173,6 +169,6 @@ export function StorageSettings() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </section>
+    </SettingRow>
   )
 }

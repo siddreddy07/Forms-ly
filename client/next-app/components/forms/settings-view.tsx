@@ -1,27 +1,25 @@
 "use client"
 
+import { AiSettings } from "@/components/forms/ai-settings"
+import { SettingRow } from "@/components/forms/setting-row"
 import { StorageSettings } from "@/components/forms/storage-settings"
 import { ThemePicker } from "@/components/theme-switcher"
 
-/* Public/private lives in Share. This is where the rest of the settings go: how the app looks, and file storage. */
+/* Public/private lives in Share. This is where the rest go, as short rows in one card: how the app looks, AI, and file
+   storage. Each row is a title, one line of help and its control. */
 export function SettingsView({ formId }: { formId: string }) {
   void formId
   return (
-    <div className="mx-auto grid w-full max-w-2xl gap-5 px-4 py-6 sm:px-6 sm:py-8">
-      <div>
-        <h2 className="font-display text-2xl font-medium tracking-tight">Settings</h2>
-        <p className="mt-0.5 text-sm text-muted-foreground">Options for your forms.</p>
+    <div className="mx-auto grid w-full max-w-2xl gap-3 px-4 py-4 sm:gap-4 sm:px-6 sm:py-8">
+      <h2 className="font-display text-xl font-medium tracking-tight sm:text-2xl">Settings</h2>
+
+      <div className="divide-y rounded-xl border bg-card">
+        <SettingRow inline title="Appearance" hint="Light, dark, or follow your device.">
+          <ThemePicker className="w-full sm:w-60 [&_button]:h-8" />
+        </SettingRow>
+        <AiSettings />
+        <StorageSettings />
       </div>
-
-      <section className="grid gap-4 rounded-xl border bg-card p-5">
-        <div className="grid gap-1.5">
-          <h3 className="text-base font-medium">Appearance</h3>
-          <p className="text-sm text-muted-foreground">Choose light or dark, or follow your device. It only changes how you see the app, not how your forms look to others.</p>
-        </div>
-        <ThemePicker className="max-w-sm" />
-      </section>
-
-      <StorageSettings />
     </div>
   )
 }
