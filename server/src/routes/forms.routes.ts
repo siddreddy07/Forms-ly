@@ -21,6 +21,31 @@ const documentSchema = z.looseObject({
 
 const idSchema = z.uuid()
 
+// The form's look (Design tab). Same shape as FormDesign in the frontend (lib/api/mock-design.ts).
+// URLs are only length-limited here because people type them letter by letter; the page only uses a link once it
+// is a valid web address, and anything that shows these to the public must check that again.
+const designSchema = z.object({
+  background: z
+    .object({
+      color: z.enum(["red", "orange", "yellow", "green", "blue", "indigo", "violet"]),
+      opacity: z.union([z.literal(30), z.literal(60), z.literal(100)]),
+    })
+    .nullable(),
+  font: z.enum(["sans", "serif", "mono"]),
+  accent: z.string().regex(/^#[0-9a-f]{6}$/i).nullable(),
+  logo: z.object({ url: z.string().max(2000), size: z.enum(["sm", "md", "lg"]), align: z.enum(["left", "center"]) }).nullable(),
+  radius: z.enum(["sm", "md", "lg"]),
+  width: z.enum(["narrow", "normal", "wide"]),
+  thankYou: z.object({
+    title: z.string().max(120),
+    message: z.string().max(500),
+    buttonLabel: z.string().max(40),
+    buttonUrl: z.string().max(500),
+    redirectUrl: z.string().max(500),
+  }),
+  hideBadge: z.boolean(),
+})
+
 // What we send to the browser for one form (no document, used in lists)
 function summary(form: Form, responseCount = 0) {
   return {
@@ -104,7 +129,7 @@ router.get("/:id", async (req, res) => {
     res.status(404).json({ error: "Form not found" })
     return
   }
-  res.json({ form: summary(form), document: form.draft, version: form.version })
+  res.json({ form: summary(form), document: form.draft, version: form.version, design: form.design })
 })
 
 // ---------- PUT /forms/:id : save the document ----------
@@ -179,23 +204,25 @@ router.put("/:id", saveLimiter, async (req, res) => {
   res.status(409).json({ document: current.draft, version: current.version, updatedAt: current.updatedAt })
 })
 
-// ---------- PATCH /forms/:id : change the title or who can fill it in ----------
+// ---------- PATCH /forms/:id : change the name, who can fill it in, or the design ----------
+// The Design tab autosaves here, so it shares the save rate limit.
 
 const patchSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     access: z.enum(["public", "private"]),
+    design: designSchema,
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Nothing to change")
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", saveLimiter, async (req, res) => {
   const body = patchSchema.safeParse(req.body)
   if (!body.success) {
     res.status(400).json({ error: "Invalid change", details: z.flattenError(body.error) })
     return
   }
-  const form = await findOwnForm(req.user!.id, req.params.id)
+  const form = await findOwnForm(req.user!.id, String(req.params.id))
   if (!form) {
     res.status(404).json({ error: "Form not found" })
     return
