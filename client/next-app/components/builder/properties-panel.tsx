@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { blockRegistry, createOption, supportsWidth, type Block, type BlockType, type Validation } from "@/lib/schema"
 import { cn } from "@/lib/utils"
+import { MAX_UPLOAD_MB, maxUploadMb } from "@/lib/uploads"
 
 const placeholderTypes: BlockType[] = ["short_text", "long_text", "email", "phone", "number", "url", "dropdown"]
 const lengthTypes: BlockType[] = ["short_text", "long_text"]
@@ -297,8 +298,14 @@ function PropertiesPanel({ onClose, onDelete, compact = false }: { onClose?: () 
             <Field label="Max files" htmlFor={fid("mf")}>
               <NumberField id={fid("mf")} min={1} max={10} value={block.validation?.maxFiles} onChange={(n) => setValidation("maxFiles", n)} />
             </Field>
-            <Field label="Max size (MB)" htmlFor={fid("ms")}>
-              <NumberField id={fid("ms")} min={1} value={block.validation?.maxFileSizeMb} onChange={(n) => setValidation("maxFileSizeMb", n)} />
+            <Field label={`Max size (up to ${MAX_UPLOAD_MB} MB)`} htmlFor={fid("ms")}>
+              <NumberField
+                id={fid("ms")}
+                min={1}
+                max={MAX_UPLOAD_MB}
+                value={maxUploadMb(block)}
+                onChange={(n) => setValidation("maxFileSizeMb", n === undefined ? undefined : Math.min(n, MAX_UPLOAD_MB))}
+              />
             </Field>
           </div>
         </Section>

@@ -8,6 +8,7 @@ import _analytics from './analytics.bones.json'
 import _share from './share.bones.json'
 import _responses from './responses.bones.json'
 import _design_panel from './design-panel.bones.json'
+import _storage from './storage.bones.json'
 import _public_form from './public-form.bones.json'
 import _form_canvas from './form-canvas.bones.json'
 
@@ -19,6 +20,7 @@ registerBones({
   "share": _share,
   "responses": _responses,
   "design-panel": _design_panel,
+  "storage": _storage,
   "public-form": _public_form,
   "form-canvas": _form_canvas,
 })

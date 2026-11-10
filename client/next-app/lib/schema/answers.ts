@@ -3,6 +3,7 @@ import { z } from "zod"
 import { isBlockVisible } from "./logic"
 import { isAnswerBlock } from "./registry"
 import type { Answers, Block, FormDocument } from "./types"
+import { maxUploadMb } from "@/lib/uploads"
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
@@ -64,8 +65,9 @@ function baseSchema(block: Block): z.ZodType {
     }
     case "file_upload": {
       const maxFiles = block.validation?.maxFiles ?? 1
+      const maxMb = maxUploadMb(block)
       return z
-        .array(z.object({ name: z.string(), size: z.number(), url: z.string() }))
+        .array(z.object({ name: z.string(), size: z.number().max(maxMb * 1024 * 1024, `Each file must be ${maxMb} MB or smaller`), url: z.string() }))
         .max(maxFiles, `Upload at most ${maxFiles} file${maxFiles === 1 ? "" : "s"}`)
     }
     default:

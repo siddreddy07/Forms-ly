@@ -70,7 +70,7 @@ export function createClientIntake(): FormDocument {
         createBlock("long_text", { label: "Describe the project", required: true, validation: { minLength: 20, maxLength: 1500 } }),
         createBlock("date", { label: "Ideal launch date", layout: { colSpan: 6 } }),
         createBlock("number", { label: "Budget in pounds", validation: { min: 0 }, layout: { colSpan: 6 } }),
-        createBlock("file_upload", { label: "Brief or references", validation: { maxFiles: 3, maxFileSizeMb: 10 } }),
+        createBlock("file_upload", { label: "Brief or references", validation: { maxFiles: 3, maxFileSizeMb: 3 } }),
       ]),
     ],
   }

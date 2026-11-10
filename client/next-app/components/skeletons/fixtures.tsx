@@ -161,3 +161,22 @@ export function ResponsesFixture() {
     </div>
   )
 }
+
+/* Settings: the file storage card (heading, a line of text, a status box and a button). The page heading above
+   it is plain UI, so it is not part of it. */
+export function StorageFixture() {
+  return (
+    <div className="grid gap-4 rounded-xl border bg-card p-5">
+      <div className="grid gap-1.5">
+        <h3 className="text-base font-medium">File uploads</h3>
+        <p className="text-sm text-muted-foreground">Where files are kept when people attach them to your forms. Each file can be up to 3 MB.</p>
+      </div>
+      <div className="grid gap-2 rounded-lg border p-3">
+        <p className="text-sm font-medium">Free storage on the service</p>
+        <div className="h-1.5 w-full rounded-full bg-muted" />
+        <p className="text-xs text-muted-foreground">A small free allowance to try file uploads.</p>
+      </div>
+      <div className="h-9 w-44 rounded-lg bg-muted" />
+    </div>
+  )
+}

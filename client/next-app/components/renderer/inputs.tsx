@@ -4,6 +4,7 @@ import * as React from "react"
 import { CheckIcon, StarIcon, UploadIcon, XIcon } from "lucide-react"
 
 import type { Block, FileAnswer } from "@/lib/schema"
+import { maxUploadMb } from "@/lib/uploads"
 import { cn } from "@/lib/utils"
 
 type Common = {
@@ -187,18 +188,18 @@ export function FileInput({
 }: Common & { value: FileAnswer[]; onChange: (next: FileAnswer[]) => void }) {
   const [localError, setLocalError] = React.useState<string>()
   const maxFiles = block.validation?.maxFiles ?? 1
-  const maxMb = block.validation?.maxFileSizeMb
+  const maxMb = maxUploadMb(block)
 
   function add(files: FileList | null) {
     if (!files) return
     setLocalError(undefined)
     const accepted: FileAnswer[] = []
     for (const f of Array.from(files)) {
-      if (maxMb && f.size > maxMb * 1024 * 1024) {
+      if (f.size > maxMb * 1024 * 1024) {
         setLocalError(`${f.name} is larger than ${maxMb} MB`)
         continue
       }
-      /* Placeholder: real uploads go to storage and return a URL. */
+      /* Placeholder until publishing exists: real uploads will go straight to storage and return a URL. */
       accepted.push({ name: f.name, size: f.size, url: URL.createObjectURL(f) })
     }
     onChange([...value, ...accepted].slice(0, maxFiles))

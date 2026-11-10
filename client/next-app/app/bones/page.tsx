@@ -12,6 +12,7 @@ import {
   PublicFormFixture,
   ResponsesFixture,
   ShareFixture,
+  StorageFixture,
 } from "@/components/skeletons/fixtures"
 
 /* Developer-only page for `npx boneyard-js build`. It shows each named skeleton's fixture so the tool can
@@ -34,6 +35,9 @@ export default function BonesPage() {
       </Skeleton>
       <Skeleton name="design-panel" loading={false} fixture={<DesignPanelFixture />}>
         <DesignPanelFixture />
+      </Skeleton>
+      <Skeleton name="storage" loading={false} fixture={<StorageFixture />}>
+        <StorageFixture />
       </Skeleton>
       <Skeleton name="public-form" loading={false} fixture={<PublicFormFixture />}>
         <PublicFormFixture />
