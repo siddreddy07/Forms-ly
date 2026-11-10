@@ -360,29 +360,3 @@ export function ThanksPanel({ formId, design }: PanelProps) {
     </div>
   )
 }
-
-/* ---------- AI (Pro, UI only) ---------- */
-
-export function AiPanel() {
-  const pro = useIsPro()
-  const [prompt, setPrompt] = React.useState("")
-  return (
-    <div className="grid gap-3">
-      <Section title="Design with AI" pro>
-        <Textarea
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          disabled={!pro}
-          rows={3}
-          aria-label="Describe the look you want"
-          placeholder="Describe the look you want, like “calm and friendly for a yoga studio”"
-          className="rounded-lg text-sm"
-        />
-        <Button disabled={!pro || !prompt.trim()} onClick={() => toast.message("AI design is coming soon.")} className="w-fit">
-          <SparklesIcon /> Generate design
-        </Button>
-      </Section>
-      {!pro && <UpgradeHint />}
-    </div>
-  )
-}

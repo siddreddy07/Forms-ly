@@ -6,7 +6,7 @@ import { PaletteIcon } from "lucide-react"
 import { useFormDesign } from "@/components/design/use-form-design"
 import { FormFrame } from "@/components/design/form-frame"
 import { SaveStatus } from "@/components/design/save-status"
-import { AiPanel, BrandPanel, ColourPanel, FontPanel, ThanksPanel } from "@/components/design/panels"
+import { BrandPanel, ColourPanel, FontPanel, ThanksPanel } from "@/components/design/panels"
 import { FormRenderer } from "@/components/renderer/form-renderer"
 import { TabSkeleton } from "@/components/skeletons/loading"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,6 @@ const tabs = [
   { id: "brand", label: "Brand" },
   { id: "font", label: "Font" },
   { id: "thanks", label: "Thanks" },
-  { id: "ai", label: "AI" },
 ] as const
 type TabId = (typeof tabs)[number]["id"]
 
@@ -51,7 +50,7 @@ function Controls({
   return (
     <div className="mx-auto grid w-full max-w-md gap-3 lg:max-w-none">
       <div className="flex items-center gap-2">
-        <div role="tablist" aria-label="Design options" className="grid flex-1 grid-cols-5 rounded-lg bg-muted p-0.5">
+        <div role="tablist" aria-label="Design options" className="grid flex-1 grid-cols-4 rounded-lg bg-muted p-0.5">
           {tabs.map((t) => (
             <button
               key={t.id}
@@ -81,7 +80,6 @@ function Controls({
         {tab === "brand" && <BrandPanel formId={formId} design={design} />}
         {tab === "font" && <FontPanel formId={formId} design={design} />}
         {tab === "thanks" && <ThanksPanel formId={formId} design={design} />}
-        {tab === "ai" && <AiPanel />}
       </div>
     </div>
   )
@@ -182,7 +180,7 @@ export function DesignView({ formId }: { formId: string }) {
       >
         <DrawerContent className="lg:hidden">
           <DrawerTitle className="sr-only">Design options</DrawerTitle>
-          <DrawerDescription className="sr-only">Colours, brand, font, thank-you page and AI design.</DrawerDescription>
+          <DrawerDescription className="sr-only">Colours, brand, font and thank-you page.</DrawerDescription>
           <div className="px-4 pb-4 pt-1">
             <Controls formId={formId} design={design} compact onTab={onTab} onClose={() => setOpen(false)} />
           </div>
