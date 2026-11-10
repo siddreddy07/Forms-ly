@@ -71,6 +71,16 @@ function Section({ title, pro, children }: { title: string; pro?: boolean; child
   )
 }
 
+/* A label on the left and its control on the right, so a group of settings lines up as one tidy list. */
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-[4.75rem_minmax(0,1fr)] items-center gap-3">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  )
+}
+
 function Segmented<T extends string>({
   label,
   value,
@@ -184,7 +194,7 @@ export function ColourPanel({ formId, design }: PanelProps) {
       {process.env.NODE_ENV !== "production" && (
         <label className="flex items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground">
           <span>Dev only: pretend this account is on Pro</span>
-          <Switch size="sm" checked={pro} onCheckedChange={setDevPro} aria-label="Dev only: Pro on or off" />
+          <Switch size="sm" className="after:-inset-x-1" checked={pro} onCheckedChange={setDevPro} aria-label="Dev only: Pro on or off" />
         </label>
       )}
     </div>
@@ -270,7 +280,7 @@ export function BrandPanel({ formId, design }: PanelProps) {
           className="h-9"
         />
         {logoUrlBad && <p className="-mt-1 text-xs text-destructive">Use a full web address starting with https://</p>}
-        <div className="grid grid-cols-2 gap-2">
+        <FieldRow label="Size">
           <Segmented
             label="Logo size"
             value={logo?.size ?? "md"}
@@ -278,6 +288,8 @@ export function BrandPanel({ formId, design }: PanelProps) {
             disabled={!pro || !logo}
             onChange={(size) => logo && setLogo(formId, { ...logo, size })}
           />
+        </FieldRow>
+        <FieldRow label="Position">
           <Segmented
             label="Logo position"
             value={logo?.align ?? "left"}
@@ -288,22 +300,23 @@ export function BrandPanel({ formId, design }: PanelProps) {
             disabled={!pro || !logo}
             onChange={(align) => logo && setLogo(formId, { ...logo, align })}
           />
-        </div>
+        </FieldRow>
       </Section>
 
-      <Section title="Corners" pro>
-        <Segmented label="Corners" value={design.radius} options={radii} disabled={!pro} onChange={(r) => setRadius(formId, r)} />
-      </Section>
-
-      <Section title="Form width" pro>
-        <Segmented label="Form width" value={design.width} options={widths} disabled={!pro} onChange={(w) => setWidth(formId, w)} />
+      <Section title="Shape" pro>
+        <FieldRow label="Corners">
+          <Segmented label="Corners" value={design.radius} options={radii} disabled={!pro} onChange={(r) => setRadius(formId, r)} />
+        </FieldRow>
+        <FieldRow label="Form width">
+          <Segmented label="Form width" value={design.width} options={widths} disabled={!pro} onChange={(w) => setWidth(formId, w)} />
+        </FieldRow>
       </Section>
 
       <label className={cn("flex items-center justify-between gap-3 text-sm", !pro && "opacity-50")}>
         <span>
           Remove “Made with {brand.name}”<span className="ml-2 align-middle"><ProBadge /></span>
         </span>
-        <Switch checked={pro && design.hideBadge} disabled={!pro} onCheckedChange={(on) => setHideBadge(formId, on)} aria-label="Remove the Made with badge" />
+        <Switch className="after:-inset-x-1" checked={pro && design.hideBadge} disabled={!pro} onCheckedChange={(on) => setHideBadge(formId, on)} aria-label="Remove the Made with badge" />
       </label>
 
       {!pro && <UpgradeHint />}
@@ -371,12 +384,12 @@ export function ThanksPanel({ formId, design }: PanelProps) {
           <label htmlFor={`${id}-msg`} className="text-xs text-muted-foreground">Message</label>
           <Textarea id={`${id}-msg`} disabled={!pro} rows={3} maxLength={500} placeholder="Your response has been recorded." value={t.message} onChange={(e) => setThankYou(formId, { message: e.target.value })} className="rounded-lg text-sm" />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="grid gap-1.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2">
+          <div className="grid min-w-0 gap-1.5">
             <label htmlFor={`${id}-bl`} className="text-xs text-muted-foreground">Button label</label>
             <Input id={`${id}-bl`} disabled={!pro} maxLength={40} placeholder="Visit our site" value={t.buttonLabel} onChange={(e) => setThankYou(formId, { buttonLabel: e.target.value })} className="h-9" />
           </div>
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <label htmlFor={`${id}-bu`} className="text-xs text-muted-foreground">Button link</label>
             <Input id={`${id}-bu`} type="url" inputMode="url" disabled={!pro} placeholder="https://" value={t.buttonUrl} aria-invalid={urlBad(t.buttonUrl)} onChange={(e) => setThankYou(formId, { buttonUrl: e.target.value })} className="h-9" />
           </div>

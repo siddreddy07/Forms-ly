@@ -76,7 +76,7 @@ function Controls({
       </div>
       {/* In the phone drawer the panel is always the same height, so switching tabs never makes the drawer jump.
           Longer tabs scroll inside it. */}
-      <div role="tabpanel" className={cn(compact && "h-[clamp(11rem,32svh,20rem)] overflow-y-auto overscroll-contain pb-1")}>
+      <div role="tabpanel" className={cn(compact && "-mx-1 h-[clamp(11rem,32svh,20rem)] overflow-x-hidden overflow-y-auto overscroll-contain px-1 pb-1")}>
         {tab === "colour" && <ColourPanel formId={formId} design={design} />}
         {tab === "brand" && <BrandPanel formId={formId} design={design} />}
         {tab === "font" && <FontPanel formId={formId} design={design} />}
