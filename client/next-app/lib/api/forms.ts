@@ -38,6 +38,7 @@ export type FormSettings = {
   thankYouMessage: string | null
   redirectUrl: string | null
 }
+export const emptyFormSettings: FormSettings = { responseLimit: null, closeAt: null, thankYouMessage: null, redirectUrl: null }
 export type FormWithDocument = {
   form: import("@/lib/api/types").FormSummary
   document: unknown
@@ -47,12 +48,16 @@ export type FormWithDocument = {
   settings: FormSettings
 }
 export type PublishResponse = { form: import("@/lib/api/types").FormSummary; publish: PublishInfo }
+/* PATCH /forms/:id also sends back the saved settings, so the Settings tab stays in step with the server. */
+export type FormPatchResponse = PublishResponse & { settings: FormSettings }
 
 /* What GET /public/forms/:slug answers (no sign-in). Never includes the owner or the form's id. */
 export type PublicFormResponse =
   | { state: "unpublished" }
   | { state: "private" }
-  | { state: "live"; title: string; document: unknown; design: unknown; version: number }
+  /* Its published closing time has passed. */
+  | { state: "closed"; reason: "date" | "limit"; title: string; closesAt: string | null }
+  | { state: "live"; title: string; document: unknown; design: unknown; version: number; closesAt: string | null }
 /* Opens a private form with its code. Answers the live form, or null for a wrong code (or if the request fails). */
 export async function unlockForm(slug: string, code: string): Promise<PublicFormResponse | null> {
   try {

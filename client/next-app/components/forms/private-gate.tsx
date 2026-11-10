@@ -22,7 +22,7 @@ export function PrivateGate({ slug, onOpen }: { slug: string; onOpen: (data: Pub
   async function submit(code: string) {
     setChecking(true)
     const data = await unlockForm(slug, code)
-    if (data && data.state === "live") {
+    if (data && (data.state === "live" || data.state === "closed")) {
       onOpen(data, code)
       return
     }

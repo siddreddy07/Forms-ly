@@ -28,6 +28,8 @@ type Props = {
   allowAnother?: boolean
   /* Builder preview only: show the banner slot even when no image is set. */
   showEmptyBanner?: boolean
+  /* Public form only: a short line under the header, such as when the form closes. */
+  notice?: React.ReactNode
 }
 
 function FormRenderer({
@@ -39,6 +41,7 @@ function FormRenderer({
   allowAnother,
   showEmptyBanner,
   forceThankYou,
+  notice,
 }: Props) {
   const [answers, setAnswers] = React.useState<Answers>({})
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -182,7 +185,12 @@ function FormRenderer({
 
   return (
     <form ref={root} data-form-renderer noValidate onSubmit={handleSubmit} className="scroll-mt-20">
-      {index === 0 && <FormHeaderView header={form.header} showEmptyBanner={showEmptyBanner && !!form.header} />}
+      {index === 0 && (
+        <>
+          <FormHeaderView header={form.header} showEmptyBanner={showEmptyBanner && !!form.header} />
+          {notice}
+        </>
+      )}
 
       {multi && (
         <div className="mb-6">

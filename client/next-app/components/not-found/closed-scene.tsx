@@ -4,11 +4,12 @@ import { StartLink } from "@/components/auth/start-link"
 import { MadeWith } from "@/components/brand/made-with"
 import { WarmGlow } from "@/components/ui/warm-glow"
 import { brand } from "@/lib/brand"
+import { fullDateTime } from "@/lib/time"
 
 /* The page a visitor sees when a form exists but can't be filled in. Same plain background as the 404 page; the form
    itself sits there with its questions blacked out, and a padlock (or a clock, if it just isn't open yet) on top. */
 
-type Variant = "private" | "unpublished"
+type Variant = "private" | "unpublished" | "closed"
 
 const copy: Record<Variant, { title: string; text: string }> = {
   private: {
@@ -18,6 +19,10 @@ const copy: Record<Variant, { title: string; text: string }> = {
   unpublished: {
     title: "This form isn't open yet",
     text: "The owner hasn't published it, or has taken it offline. Check back later, or ask them when it opens.",
+  },
+  closed: {
+    title: "This form is closed",
+    text: "It is not taking answers any more.",
   },
 }
 
@@ -73,8 +78,28 @@ function Clock() {
   )
 }
 
-export function ClosedScene({ variant, children }: { variant: Variant; children?: React.ReactNode }) {
-  const { title, text } = copy[variant]
+export function ClosedScene({
+  variant,
+  reason,
+  closesAt,
+  children,
+}: {
+  variant: Variant
+  /* Only for "closed": why it stopped. */
+  reason?: "date" | "limit"
+  closesAt?: string | null
+  children?: React.ReactNode
+}) {
+  const { title } = copy[variant]
+  const when = closesAt ? fullDateTime(closesAt) : ""
+  const text =
+    variant !== "closed"
+      ? copy[variant].text
+      : reason === "limit"
+        ? "It has reached the most responses it can take."
+        : when
+          ? `It stopped taking answers on ${when}.`
+          : copy.closed.text
   return (
     <div className="relative isolate min-h-svh overflow-hidden bg-background text-foreground">
       <WarmGlow />

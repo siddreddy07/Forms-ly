@@ -6,13 +6,13 @@ import Link from "next/link"
 import { TabLoading } from "@/components/skeletons/tab-skeletons"
 import { Button } from "@/components/ui/button"
 import { ApiError, useApi } from "@/lib/api/http"
-import type { FormWithDocument, PublishInfo, PublishResponse } from "@/lib/api/forms"
+import { emptyFormSettings, type FormPatchResponse, type FormSettings, type FormWithDocument, type PublishInfo, type PublishResponse } from "@/lib/api/forms"
 import { flushDesign, hydrateDesign, setDesignSaver, type DesignSaveResult } from "@/lib/api/mock-design"
 import { cacheServerRecord } from "@/lib/api/mock-server"
 import type { FormSummary } from "@/lib/api/types"
 import { parseForm, type FormDocument } from "@/lib/schema"
 
-type Loaded = { form: FormSummary; doc: FormDocument; version: number; updatedAt: string; publishInfo: PublishInfo }
+type Loaded = { form: FormSummary; doc: FormDocument; version: number; updatedAt: string; publishInfo: PublishInfo; settings: FormSettings }
 
 /* How a publish attempt ended, so the page can say the right thing. */
 export type PublishResult = { ok: true } | { ok: false; reason: "conflict" | "archived" | "failed" }
@@ -31,6 +31,8 @@ type Actions = {
   setAccess: (access: "public" | "private") => Promise<boolean>
   /* AI features on or off for a live form. Shows the change at once and puts it back if the server says no. */
   setUseAI: (on: boolean) => Promise<boolean>
+  /* Saves the Settings tab choices at once, so a closing date can be published. Puts them back if the server says no. */
+  setSettings: (next: FormSettings) => Promise<boolean>
 }
 
 type State = Actions & {
@@ -51,9 +53,12 @@ export function useFormState() {
 
 /* For everything inside <FormContent>, which only renders once the form has loaded. */
 export function useFormGate(): Loaded & Actions {
-  const { loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI } = useFormState()
+  const { loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI, setSettings } = useFormState()
   if (!loaded) throw new Error("useFormGate was used before the form loaded")
-  return React.useMemo(() => ({ ...loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI }), [loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI])
+  return React.useMemo(
+    () => ({ ...loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI, setSettings }),
+    [loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI, setSettings]
+  )
 }
 
 /* Loads the form from the backend once for the whole form workspace (Build, Design, Share...).
@@ -80,7 +85,7 @@ export function FormGate({ formId, children }: { formId: string; children: React
         } catch {
           /* storage unavailable: nothing to remove */
         }
-        setLoaded({ form: data.form, doc, version: data.version, updatedAt: data.form.updatedAt, publishInfo: data.publish })
+        setLoaded({ form: data.form, doc, version: data.version, updatedAt: data.form.updatedAt, publishInfo: data.publish, settings: data.settings ?? emptyFormSettings })
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiError && e.status === 404 ? "missing" : "failed")
       }
@@ -131,8 +136,11 @@ export function FormGate({ formId, children }: { formId: string; children: React
               version: next.version,
               updatedAt: next.updatedAt,
               form: { ...prev.form, title: next.title ?? prev.form.title },
-              /* Saving after publishing means the live copy is now behind. */
-              publishInfo: { ...prev.publishInfo, hasChanges: prev.publishInfo.published && prev.publishInfo.publishedVersion !== next.version },
+              /* Saving after publishing means the live copy is now behind. Settings changes count too. */
+              publishInfo: {
+                ...prev.publishInfo,
+                hasChanges: prev.publishInfo.published && (prev.publishInfo.publishedVersion !== next.version || prev.publishInfo.hasChanges),
+              },
             }
           : prev
       )
@@ -211,14 +219,32 @@ export function FormGate({ formId, children }: { formId: string; children: React
     [api, formId]
   )
 
+  /* Settings save on their own, not with the document. The server keeps the last published copy, so the Share tab
+     can offer "Update live form" as soon as a setting (such as the closing date) changes. */
+  const setSettings = React.useCallback<Actions["setSettings"]>(
+    async (next) => {
+      const before = loadedRef.current?.settings ?? emptyFormSettings
+      setLoaded((prev) => (prev ? { ...prev, settings: next } : prev))
+      try {
+        const res = await api<FormPatchResponse>(`/forms/${formId}`, { method: "PATCH", body: { settings: next } })
+        setLoaded((prev) => (prev ? { ...prev, settings: res.settings, publishInfo: res.publish } : prev))
+        return true
+      } catch {
+        setLoaded((prev) => (prev ? { ...prev, settings: before } : prev))
+        return false
+      }
+    },
+    [api, formId]
+  )
+
   const retry = React.useCallback(() => {
     setError(null)
     setAttempt((n) => n + 1)
   }, [])
 
   const value = React.useMemo(
-    () => ({ loaded, error, retry, commit, setTitle, publish, unpublish, setAccess, setUseAI }),
-    [loaded, error, retry, commit, setTitle, publish, unpublish, setAccess, setUseAI]
+    () => ({ loaded, error, retry, commit, setTitle, publish, unpublish, setAccess, setUseAI, setSettings }),
+    [loaded, error, retry, commit, setTitle, publish, unpublish, setAccess, setUseAI, setSettings]
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

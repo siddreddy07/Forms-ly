@@ -22,22 +22,26 @@ export function PublicFormView({ slug, data: first }: { slug: string; data: Publ
   const design = React.useMemo(() => parseDesign(live ? JSON.stringify(live.design ?? {}) : null), [live])
 
   if (!live) {
-    return data.state === "private" ? (
-      <ClosedScene variant="private">
-        <PrivateGate slug={slug} onOpen={(next, typed) => {
-          setData(next)
-          setCode(typed)
-        }} />
-      </ClosedScene>
-    ) : (
-      <ClosedScene variant="unpublished" />
-    )
+    if (data.state === "private") {
+      return (
+        <ClosedScene variant="private">
+          <PrivateGate slug={slug} onOpen={(next, typed) => {
+            setData(next)
+            setCode(typed)
+          }} />
+        </ClosedScene>
+      )
+    }
+    if (data.state === "closed") {
+      return <ClosedScene variant="closed" reason={data.reason} closesAt={data.closesAt} />
+    }
+    return <ClosedScene variant="unpublished" />
   }
 
   return (
     <ThemedBackground as="main" design={design} className="min-h-svh px-4 py-8 sm:py-16">
       <FormFrame design={design} title={doc && !doc.header?.title ? live.title : undefined}>
-        {doc && <PublicForm slug={slug} doc={doc} design={design} version={live.version} code={code} />}
+        {doc && <PublicForm slug={slug} doc={doc} design={design} version={live.version} code={code} closesAt={live.closesAt} />}
       </FormFrame>
     </ThemedBackground>
   )
