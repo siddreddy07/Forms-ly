@@ -1,6 +1,6 @@
 // Settings for the AI features. Nothing here is secret.
 //
-// Who pays: the person using the app brings their own provider, model and key (the AI tab in Settings). The key is
+// Who pays: the person using the app brings their own company and key (the AI tab in Settings). The key is
 // saved encrypted against their account (ai_connections table, libs/crypto.ts) and is never sent back to the browser.
 // The server has no AI key of its own.
 
@@ -11,25 +11,19 @@ type ProviderInfo = {
   label: string
   // Where the person gets a key, for the settings screen
   keyUrl: string
-  // Shown as choices in the model picker. The picker should also let people type any model id, because providers
-  // add and retire models often and this list will go out of date.
-  suggestedModels: string[]
+  // The model used for this company. People do not pick one: the server decides, so every AI feature runs on a model
+  // that is known to work here. Change it in this one place when a company retires or replaces a model.
+  model: string
 }
 
 export const providerInfo: Record<AiProvider, ProviderInfo> = {
-  openai: { label: "OpenAI", keyUrl: "https://platform.openai.com/api-keys", suggestedModels: ["gpt-5-mini", "gpt-5"] },
-  anthropic: {
-    label: "Anthropic",
-    keyUrl: "https://console.anthropic.com/settings/keys",
-    suggestedModels: ["claude-haiku-5-5", "claude-sonnet-5-5", "claude-opus-5-5"],
-  },
-  google: { label: "Google", keyUrl: "https://aistudio.google.com/apikey", suggestedModels: ["gemini-2.5-flash", "gemini-2.5-pro"] },
-  groq: { label: "Groq", keyUrl: "https://console.groq.com/keys", suggestedModels: ["llama-3.3-70b-versatile"] },
+  openai: { label: "OpenAI", keyUrl: "https://platform.openai.com/api-keys", model: "gpt-5-mini" },
+  anthropic: { label: "Anthropic", keyUrl: "https://console.anthropic.com/settings/keys", model: "claude-haiku-5-5" },
+  google: { label: "Google", keyUrl: "https://aistudio.google.com/apikey", model: "gemini-2.5-flash" },
+  groq: { label: "Groq", keyUrl: "https://console.groq.com/keys", model: "llama-3.3-70b-versatile" },
 }
 
 export const aiLimits = {
-  // A model id is letters, digits and . _ - : / (for example "claude-sonnet-5-5" or "models/gemini-2.5-flash")
-  modelPattern: /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,99}$/,
   minKeyLength: 8,
   maxKeyLength: 500,
   // Give up on a slow model after this long

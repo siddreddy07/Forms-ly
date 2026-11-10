@@ -1,0 +1,1 @@
+ALTER TABLE "ai_connections" DROP COLUMN "model";

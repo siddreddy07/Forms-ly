@@ -51,7 +51,7 @@ export const storageConnections = pgTable("storage_connections", {
   updatedAt: updatedAt(),
 })
 
-// ---------- ai_connections: a user's own AI provider, model and key, for the AI features ----------
+// ---------- ai_connections: a user's own AI company and key, for the AI features ----------
 // One per user. The key is paid for by the user, so it is encrypted here (libs/crypto.ts) and never sent back.
 
 export const aiConnections = pgTable("ai_connections", {
@@ -61,8 +61,6 @@ export const aiConnections = pgTable("ai_connections", {
     .unique()
     .references(() => users.id, { onDelete: "cascade" }),
   provider: aiProvider("provider").notNull(),
-  // The model id the user chose, for example "claude-sonnet-5-5"
-  model: text("model").notNull(),
   apiKeyEnc: text("api_key_enc").notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),

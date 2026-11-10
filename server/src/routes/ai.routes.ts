@@ -23,7 +23,8 @@ const connectLimiter = rateLimit({
   message: { error: "Too many attempts. Try again in a minute." },
 })
 
-const providers = aiProviders.map((id) => ({ id, ...providerInfo[id] }))
+// The model is the server's choice and stays here
+const providers = aiProviders.map((id) => ({ id, label: providerInfo[id].label, keyUrl: providerInfo[id].keyUrl }))
 
 // What the browser may know about a saved connection. The key itself is never in here, only its last 4 characters so
 // the person can tell which key is saved.
@@ -35,7 +36,7 @@ function publicView(row: Row) {
   } catch {
     // Unreadable: the app will ask for the key again when it is used
   }
-  return { provider: row.provider, model: row.model, keyHint, connectedAt: row.createdAt, updatedAt: row.updatedAt }
+  return { provider: row.provider, keyHint, connectedAt: row.createdAt, updatedAt: row.updatedAt }
 }
 
 // ---------- GET /ai : my AI settings and the providers to choose from ----------
@@ -45,15 +46,13 @@ router.get("/", async (req, res) => {
   res.json({ providers, connection: row ? publicView(row) : null })
 })
 
-// ---------- PUT /ai : save my provider, model and key ----------
-// Body: { provider, model, apiKey? }
-// Leave out apiKey to keep the saved one and only change the model (same provider).
+// ---------- PUT /ai : save my company and key ----------
+// Body: { provider, apiKey }
 // The key is tried against the provider first, and only saved if it works.
 
 const saveSchema = z.object({
   provider: aiSettingsSchema.shape.provider,
-  model: aiSettingsSchema.shape.model,
-  apiKey: aiSettingsSchema.shape.apiKey.optional(),
+  apiKey: aiSettingsSchema.shape.apiKey,
 })
 
 router.put("/", connectLimiter, async (req, res) => {
@@ -63,36 +62,19 @@ router.put("/", connectLimiter, async (req, res) => {
   }
   const body = saveSchema.safeParse(req.body)
   if (!body.success) {
-    res.status(400).json({ error: "Check the provider, model and key and try again.", fields: z.flattenError(body.error).fieldErrors })
+    res.status(400).json({ error: "Check the company and key and try again.", fields: z.flattenError(body.error).fieldErrors })
     return
   }
-  const { provider, model } = body.data
+  const { provider, apiKey } = body.data
   const userId = req.user!.id
 
-  // No new key: keep the saved one, but only for the same provider (a key for one company is useless to another)
-  let apiKey = body.data.apiKey
-  if (!apiKey) {
-    const [existing] = await db.select().from(aiConnections).where(eq(aiConnections.userId, userId))
-    if (existing?.provider === provider) {
-      try {
-        apiKey = decryptSecret(existing.apiKeyEnc)
-      } catch {
-        // Falls through to asking for the key again
-      }
-    }
-    if (!apiKey) {
-      res.status(400).json({ error: "Add your API key.", fields: { apiKey: ["Required"] } })
-      return
-    }
-  }
-
-  const checked = await verifyAiSettings({ provider, model, apiKey })
+  const checked = await verifyAiSettings({ provider, apiKey })
   if (!checked.ok) {
     res.status(checked.status).json({ error: checked.message })
     return
   }
 
-  const values = { userId, provider, model, apiKeyEnc: encryptSecret(apiKey) }
+  const values = { userId, provider, apiKeyEnc: encryptSecret(apiKey) }
   const [saved] = await db.insert(aiConnections).values(values).onConflictDoUpdate({ target: aiConnections.userId, set: values }).returning()
   res.json({ connection: publicView(saved!) })
 })

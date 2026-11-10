@@ -64,6 +64,13 @@
       "when": 1794316868387,
       "tag": "0008_form_use_ai",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794317890610,
+      "tag": "0009_ai_connections_drop_model",
+      "breakpoints": true
     }
   ]
 }

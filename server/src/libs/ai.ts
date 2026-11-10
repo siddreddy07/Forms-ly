@@ -7,24 +7,24 @@ import { eq } from "drizzle-orm"
 import rateLimit, { ipKeyGenerator } from "express-rate-limit"
 import { z } from "zod"
 
-import { aiLimits, aiProviders, type AiProvider } from "../config/ai.js"
+import { aiLimits, aiProviders, providerInfo, type AiProvider } from "../config/ai.js"
 import { db } from "../config/db.js"
 import { decryptSecret } from "./crypto.js"
 import { aiConnections } from "../schema.js"
 
-// One place that turns "this person's saved provider, model and key" into a model the AI SDK can call, and turns
+// One place that turns "this person's saved company and key" into a model the AI SDK can call, and turns
 // the ways that can fail into messages we can show. See config/ai.ts for the settings.
 
 export const aiSettingsSchema = z.object({
   provider: z.enum(aiProviders),
-  model: z.string().trim().regex(aiLimits.modelPattern),
   apiKey: z.string().trim().min(aiLimits.minKeyLength).max(aiLimits.maxKeyLength),
 })
 export type AiSettings = z.infer<typeof aiSettingsSchema>
 
 // The model to call. A new client each time because the key is different for every person, so nothing is shared
 // between people.
-export function modelFor({ provider, model, apiKey }: AiSettings): LanguageModel {
+export function modelFor({ provider, apiKey }: AiSettings): LanguageModel {
+  const model = providerInfo[provider].model
   const make: Record<AiProvider, () => LanguageModel> = {
     openai: () => createOpenAI({ apiKey })(model),
     anthropic: () => createAnthropic({ apiKey })(model),
@@ -38,7 +38,7 @@ export function modelFor({ provider, model, apiKey }: AiSettings): LanguageModel
 export async function loadAiSettings(userId: string): Promise<AiSettings | null> {
   const [row] = await db.select().from(aiConnections).where(eq(aiConnections.userId, userId))
   if (!row) return null
-  return { provider: row.provider, model: row.model, apiKey: decryptSecret(row.apiKeyEnc) }
+  return { provider: row.provider, apiKey: decryptSecret(row.apiKeyEnc) }
 }
 
 export type UserModel = { ok: true; model: LanguageModel; settings: AiSettings } | { ok: false; status: number; error: string }
@@ -52,7 +52,7 @@ export async function modelForUser(userId: string): Promise<UserModel> {
     // The stored key cannot be read (for example the server's encryption key changed), so ask them to add it again
     return { ok: false, status: 409, error: "Your saved AI key can't be read. Add it again in Settings." }
   }
-  if (!settings) return { ok: false, status: 409, error: "Choose an AI provider and model, and add your API key in Settings." }
+  if (!settings) return { ok: false, status: 409, error: "Choose an AI company and add your API key in Settings." }
   return { ok: true, model: modelFor(settings), settings }
 }
 
@@ -75,7 +75,7 @@ export function describeAiError(error: unknown): { status: number; message: stri
       case 403:
         return { status: 400, message: "The provider rejected your API key. Check it and try again." }
       case 404:
-        return { status: 400, message: "The provider doesn't know that model. Pick another one." }
+        return { status: 400, message: "The provider doesn't have the model we use. Try again later." }
       case 429:
         return { status: 429, message: "The provider says you are out of quota or going too fast. Try again later." }
     }
@@ -84,7 +84,7 @@ export function describeAiError(error: unknown): { status: number; message: stri
   return { status: 502, message: "The AI couldn't answer. Try again." }
 }
 
-// Does this provider, model and key work? Asks for a one word reply, so it costs almost nothing.
+// Does this company's key work? Asks for a one word reply, so it costs almost nothing.
 export async function verifyAiSettings(settings: AiSettings): Promise<{ ok: true } | { ok: false; status: number; message: string }> {
   try {
     await generateText({ model: modelFor(settings), prompt: "Reply with the word ok.", maxOutputTokens: 32, maxRetries: 0, abortSignal: AbortSignal.timeout(aiLimits.timeoutMs) })
