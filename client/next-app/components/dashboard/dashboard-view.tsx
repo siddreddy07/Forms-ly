@@ -56,10 +56,10 @@ function DashboardView() {
   /* Load every form (live and archived) from the backend. */
   React.useEffect(() => {
     let cancelled = false
-    Promise.all([api<FormListResponse>("/forms"), api<FormListResponse>("/forms?archived=true")])
-      .then(([live, archived]) => {
+    api<FormListResponse>("/forms?archived=all")
+      .then((res) => {
         if (cancelled) return
-        setAll([...live.forms, ...archived.forms])
+        setAll(res.forms)
         setLoadState("ready")
       })
       .catch(() => {

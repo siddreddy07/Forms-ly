@@ -47,12 +47,13 @@ const DEBOUNCE_MS = 800
 const MAX_WAIT_MS = 5000
 
 /* Autosave to the server. Every save is a database write, so we save in bursts, not on every keystroke:
-   - IDLE: save once you stop editing for 2 seconds.
-   - MAX_WAIT: if you keep editing without a pause, still save at least every 15 seconds.
+   - IDLE: save once you stop editing for 4 seconds.
+   - MAX_WAIT: if you keep editing without a pause, still save at least every 30 seconds.
+   - Nothing is sent when the content is the same as what the server already has, even if the editor rebuilt it.
    - Only one save runs at a time. Edits made while it runs are sent in the next one.
    - If a save fails (offline, server error), retry after 3s, 6s, 12s... up to 60s, with a little randomness. */
-const AUTOSAVE_IDLE_MS = 2000
-const AUTOSAVE_MAX_WAIT_MS = 15000
+const AUTOSAVE_IDLE_MS = 4000
+const AUTOSAVE_MAX_WAIT_MS = 30000
 const RETRY_BASE_MS = 3000
 const RETRY_MAX_MS = 60000
 /* Browsers only let a request finish after the page closes if it is under about 64KB. */
@@ -66,6 +67,8 @@ type SaveOutcome =
   | { ok: false; reason: "rejected" }
 
 const sameDoc = (a: FormDocument, b: FormDocument) => JSON.stringify(a) === JSON.stringify(b)
+/* Compares what is in the editor with what the server has, by content (the editor sometimes rebuilds the same form). */
+const isChanged = (doc: FormDocument, saved: FormDocument) => doc !== saved && !sameDoc(doc, saved)
 
 /* Keeps a local backup while you edit, and sends the whole form to the backend on Save.
    The editor always works from memory; the backup is only read once, when the builder opens. */
@@ -119,9 +122,9 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     maxTimer.current = null
     if (!ready.current || restoring.current) return
     const doc = store.getState().doc
-    const ok = writeDraft(formId, { doc, baseVersion: baseVersion.current, savedAt: new Date().toISOString(), dirty: doc !== savedDoc.current })
+    const ok = writeDraft(formId, { doc, baseVersion: baseVersion.current, savedAt: new Date().toISOString(), dirty: isChanged(doc, savedDoc.current) })
     setBackupFailed(!ok)
-    if (ok && doc !== savedDoc.current && statusRef.current === "dirty") setStatusBoth("drafted")
+    if (ok && isChanged(doc, savedDoc.current) && statusRef.current === "dirty") setStatusBoth("drafted")
   }, [store, formId, setStatusBoth])
 
   const schedule = React.useCallback(() => {
@@ -140,11 +143,15 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
   const autosaveNow = React.useCallback(() => {
     clearAutosave()
     if (!ready.current || restoring.current || paused.current) return
-    if (store.getState().doc === savedDoc.current) return
+    if (!isChanged(store.getState().doc, savedDoc.current)) {
+      /* The editor rebuilt the same content: there is nothing to send, so it counts as saved. */
+      if (statusRef.current === "dirty" || statusRef.current === "drafted") setStatusBoth("saved")
+      return
+    }
     /* Offline: the local backup keeps the work safe, and we try again when the connection returns. */
     if (typeof navigator !== "undefined" && navigator.onLine === false) return
     void saveRef.current({ silent: true })
-  }, [clearAutosave, store])
+  }, [clearAutosave, store, setStatusBoth])
 
   /* Called on every edit: wait for a pause, but never longer than the max wait. */
   const scheduleAutosave = React.useCallback(() => {
@@ -161,7 +168,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     clearAutosave()
     if (!ready.current || restoring.current || paused.current) return
     const doc = store.getState().doc
-    if (doc === savedDoc.current) return
+    if (!isChanged(doc, savedDoc.current)) return
     void saveRef.current({ silent: true, keepalive: JSON.stringify(doc).length < KEEPALIVE_MAX_BYTES })
   }, [clearAutosave, store])
 
@@ -244,7 +251,12 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
   const doSave = React.useCallback(
     async ({ silent = false, keepalive = false }: SaveOptions): Promise<boolean> => {
       const doc = store.getState().doc
-      if (doc === savedDoc.current && statusRef.current !== "error") return true
+      if (!isChanged(doc, savedDoc.current) && statusRef.current !== "error") {
+        /* Same content as the server has: nothing to send. */
+        savedDoc.current = doc
+        if (statusRef.current !== "saved") setStatusBoth("saved")
+        return true
+      }
       setStatusBoth("saving")
       const res = await send(doc, keepalive)
 

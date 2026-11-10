@@ -211,11 +211,11 @@ export function parseDesign(raw: string | null): FormDesign {
 }
 
 /* ---------- Saving to the backend ----------
-   Every change is a database write, so changes are sent in bursts: 1.5 seconds after you stop, and at least every
-   10 seconds while you keep going. One request per form at a time; changes made during a save go in the next one.
+   Every change is a database write, so changes are sent in bursts: 3 seconds after you stop, and at least every
+   20 seconds while you keep going. Nothing is sent if the design is the same as what the backend already has. One request per form at a time; changes made during a save go in the next one.
    A failed save retries after 3s, 6s, 12s... up to 60s. The page registers how to send a request with setDesignSaver. */
-const IDLE_MS = 1500
-const MAX_WAIT_MS = 10000
+const IDLE_MS = 3000
+const MAX_WAIT_MS = 20000
 const RETRY_BASE_MS = 3000
 const RETRY_MAX_MS = 60000
 
@@ -244,6 +244,8 @@ let saver: Saver | null = null
 /* Forms with changes the backend has not confirmed yet. */
 const pending = new Set<string>()
 const running = new Set<string>()
+/* The design the backend last confirmed (as text), to skip sending something it already has. */
+const confirmed = new Map<string, string>()
 const failures = new Map<string, number>()
 const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const maxTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -261,18 +263,28 @@ async function runSave(formId: string, keepalive = false) {
   if (!saver || !pending.has(formId) || running.has(formId)) return
   if (typeof navigator !== "undefined" && navigator.onLine === false) return
 
+  const current = parseDesign(window.localStorage.getItem(designKey(formId)))
+  if (confirmed.get(formId) === JSON.stringify(current)) {
+    /* Same as the backend already has (changed and changed back): nothing to send. */
+    pending.delete(formId)
+    setUnsent(formId, false)
+    if (getSaveState(formId).status === "saving") setSaveState(formId, { status: "saved", savedAt: getSaveState(formId).savedAt ?? Date.now() })
+    return
+  }
+
   running.add(formId)
   pending.delete(formId)
   setSaveState(formId, { status: "saving", savedAt: getSaveState(formId).savedAt })
   let result: DesignSaveResult
   try {
-    result = await saver(formId, parseDesign(window.localStorage.getItem(designKey(formId))), keepalive)
+    result = await saver(formId, current, keepalive)
   } catch {
     result = { ok: false, retry: true, waitSeconds: null }
   }
   running.delete(formId)
 
   if (result.ok) {
+    confirmed.set(formId, JSON.stringify(current))
     failures.delete(formId)
     /* Changed again while saving: send the newest in the next save. */
     if (pending.has(formId)) scheduleSave(formId)
@@ -336,7 +348,9 @@ export function hydrateDesign(formId: string, fromServer: unknown) {
       }
       return
     }
-    window.localStorage.setItem(designKey(formId), JSON.stringify(parseDesign(JSON.stringify(fromServer))))
+    const fromBackend = parseDesign(JSON.stringify(fromServer))
+    confirmed.set(formId, JSON.stringify(fromBackend))
+    window.localStorage.setItem(designKey(formId), JSON.stringify(fromBackend))
     listeners.forEach((l) => l())
   } catch {
     /* storage unavailable: the page just shows defaults */
@@ -346,7 +360,9 @@ export function hydrateDesign(formId: string, fromServer: unknown) {
 function update(formId: string, patch: Partial<FormDesign>) {
   try {
     const now = parseDesign(window.localStorage.getItem(designKey(formId)))
-    window.localStorage.setItem(designKey(formId), JSON.stringify({ ...now, ...patch }))
+    const next = { ...now, ...patch }
+    if (JSON.stringify(next) === JSON.stringify(now)) return
+    window.localStorage.setItem(designKey(formId), JSON.stringify(next))
   } catch {
     /* storage unavailable or full */
     setSaveState(formId, { status: "error", savedAt: getSaveState(formId).savedAt })
