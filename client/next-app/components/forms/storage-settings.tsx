@@ -143,7 +143,7 @@ export function StorageSettings() {
                 ? "Free storage isn't available right now. Connect your own ImageKit to accept files."
                 : full
                   ? "You've used the free files. Connect your own ImageKit to keep accepting uploads."
-                  : "A small free allowance to try file uploads. Connect your own ImageKit for no limit."}
+                  : "A small free allowance to try file uploads. Connect your own File Storage (ImageKit) for no limit."}
             </p>
           </div>
           <Button className="w-fit" variant={full || !platform.available ? "default" : "outline"} onClick={() => setConnecting(true)}>
