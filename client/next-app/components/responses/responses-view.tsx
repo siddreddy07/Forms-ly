@@ -11,7 +11,9 @@ import { csvEscape, answerText } from "@/components/responses/format"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { ResponseFilters } from "@/components/responses/filters"
 import { useResponses } from "@/lib/api/responses"
+import { activeCount, applyFilter, emptyFilter, fieldToBlock, type ResponseFilter } from "@/lib/responses/filter"
 import { useFormGate } from "@/components/workspace/form-gate"
 import { isAnswerBlock, type Block } from "@/lib/schema"
 
@@ -50,6 +52,8 @@ export function ResponsesView({ formId }: { formId: string }) {
   const responses = state.status === "ready" ? state.items : null
   const [query, setQuery] = React.useState("")
   const { doc } = useFormGate()
+  const [filter, setFilter] = React.useState<ResponseFilter>(emptyFilter)
+  const [now] = React.useState(() => Date.now())
 
   /* Columns: the questions saved with each response (newest first), then any question the form has now that
      they miss, so the headers are always there. */
@@ -61,13 +65,20 @@ export function ResponsesView({ formId }: { formId: string }) {
     return [...seen.values()]
   }, [doc, responses])
 
+  /* What the table can be filtered by, from the server: current questions plus ones older responses still answer. */
+  const filterColumns = React.useMemo(() => (state.status === "ready" ? state.filterFields.map(fieldToBlock) : []), [state])
+
+  /* The responses that pass the filter panel. The search box then narrows these further. */
+  const passing = React.useMemo(() => (responses ? applyFilter(responses, filter, filterColumns, now) : []), [responses, filter, filterColumns, now])
   const rows = React.useMemo(() => {
     if (!responses) return []
     const q = query.trim().toLowerCase()
+    const ids = new Set(passing.map((r) => r.id))
     return responses
       .map((r, i) => ({ r, number: responses.length - i, cells: columns.map((c) => answerText(c, r.answers[c.id])) }))
+      .filter(({ r }) => ids.has(r.id))
       .filter(({ r, cells }) => !q || cells.some((c) => c.toLowerCase().includes(q)) || when(r.submittedAt).toLowerCase().includes(q))
-  }, [responses, columns, query])
+  }, [responses, passing, columns, query])
 
   if (state.status === "loading") {
     return <ResponsesSkeleton />
@@ -120,7 +131,7 @@ export function ResponsesView({ formId }: { formId: string }) {
         <div>
           <h2 className="font-display text-2xl font-medium tracking-tight">Responses</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {rows.length === total ? `${total} ${total === 1 ? "response" : "responses"}` : `Showing ${rows.length} of ${total}`}
+            {rows.length === total && activeCount(filter) === 0 ? `${total} ${total === 1 ? "response" : "responses"}` : `Showing ${rows.length} of ${total}`}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -134,9 +145,12 @@ export function ResponsesView({ formId }: { formId: string }) {
               className="h-9 w-full pl-9 sm:w-64"
             />
           </div>
-          <Button variant="outline" size="lg" onClick={exportCsv}>
-            <DownloadIcon /> Export CSV
-          </Button>
+          <div className="grid grid-cols-2 gap-2 sm:flex">
+            <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={passing.length} />
+            <Button variant="outline" size="lg" onClick={exportCsv}>
+              <DownloadIcon /> Export CSV
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -160,7 +174,7 @@ export function ResponsesView({ formId }: { formId: string }) {
             </dl>
           </li>
         ))}
-        {rows.length === 0 && <li className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">Nothing matches your search.</li>}
+        {rows.length === 0 && <li className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">Nothing matches your search or filters.</li>}
       </ul>
 
       {/* Larger screens: a table that scrolls sideways when there are many questions. */}
@@ -198,7 +212,7 @@ export function ResponsesView({ formId }: { formId: string }) {
             {rows.length === 0 && (
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length + 3} className="px-4 py-12 text-center text-muted-foreground">
-                  Nothing matches your search.
+                  Nothing matches your search or filters.
                 </TableCell>
               </TableRow>
             )}

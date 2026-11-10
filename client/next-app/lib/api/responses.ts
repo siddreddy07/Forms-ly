@@ -92,10 +92,23 @@ export async function uploadFile(slug: string, file: File, code?: string): Promi
   }
 }
 
+/* A field the table can be filtered by. The server builds the list from the form as it is now and from every older
+   version that has responses, and leaves out questions that cannot be compared (such as long paragraphs). */
+export type FilterField = {
+  id: string
+  label: string
+  type: string
+  kind: "text" | "number" | "rating" | "date" | "time" | "choice" | "yes_no" | "file"
+  options: { id: string; label: string }[]
+  scale: { min: number; max: number } | null
+  /* false: removed from the form, but older responses still answer it. */
+  current: boolean
+}
+
 export type ResponsesState =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "ready"; items: StoredResponse[]; total: number; publishedAt: string | null; createdAt: string }
+  | { status: "ready"; items: StoredResponse[]; total: number; publishedAt: string | null; createdAt: string; filterFields: FilterField[] }
 
 /* The signed-in owner's responses for one form, newest first, plus a way to delete one. */
 export function useResponses(formId: string) {
@@ -105,7 +118,7 @@ export function useResponses(formId: string) {
 
   React.useEffect(() => {
     let cancelled = false
-    api<{ items: StoredResponse[]; total: number; publishedAt: string | null; createdAt: string }>(`/forms/${formId}/responses`)
+    api<{ items: StoredResponse[]; total: number; publishedAt: string | null; createdAt: string; filterFields: FilterField[] }>(`/forms/${formId}/responses`)
       .then((data) => {
         if (!cancelled) setState({ status: "ready", ...data })
       })
