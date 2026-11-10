@@ -1,0 +1,114 @@
+%% Database tables for the Forms app (PostgreSQL on Neon, managed with Drizzle).
+%% View it: paste into https://mermaid.live, or open in VS Code with a Mermaid preview extension.
+%%
+%% BUILT:     users
+%% PLANNED:   everything else, added a few at a time as each feature is built.
+%%
+%% forms.design / brand_kits.theme (jsonb) holds the whole look. Free uses only page background.
+%% Pro adds the rest:
+%%   { background: { color, opacity, imageAssetId },
+%%     colors:    { primary, primaryText, text, card },
+%%     font:      "modern" | "classic" | ...,
+%%     radius:    "sm" | "md" | "lg",
+%%     cardWidth: "narrow" | "normal" | "wide",
+%%     logo:      { assetId, size, align },
+%%     thankYou:  { title, message, imageAssetId, buttonLabel, buttonUrl, redirectUrl },
+%%     hideBranding: boolean }
+%% No table for partial (unfinished) responses: not needed.
+%% Ids are uuid. JSON columns are jsonb.
+
+erDiagram
+    users ||--o{ refresh_tokens : "has login sessions"
+    users ||--o{ forms : "owns"
+    forms ||--o{ form_versions : "publishes snapshots"
+    forms ||--o{ responses : "receives"
+    responses ||--o{ files : "has uploads"
+    users ||--o{ brand_kits : "saves"
+    brand_kits ||--o{ forms : "styles"
+    users ||--o{ assets : "uploads"
+
+    users {
+        uuid id PK
+        text name
+        text email UK
+        text password_hash
+        int token_version "bump to log out everywhere"
+        timestamp created_at
+    }
+
+    refresh_tokens {
+        uuid id PK "same as the jti inside the token"
+        uuid user_id FK
+        text token_hash "never store the raw token"
+        timestamp expires_at
+        timestamp revoked_at "set on logout or rotation"
+        timestamp created_at
+    }
+
+    forms {
+        uuid id PK
+        uuid owner_id FK
+        text title
+        text status "draft, published or closed"
+        jsonb draft "latest saved builder document"
+        int version "goes up on every save, used to spot conflicts"
+        text access "public or private, default public"
+        uuid brand_kit_id FK "optional, use a saved brand kit"
+        jsonb design "this form's look, see note below"
+        jsonb settings "response limit, close date, later"
+        int published_version "which snapshot is live"
+        timestamp published_at
+        timestamp archived_at "set when archived or deleted, can be undone"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    form_versions {
+        uuid id PK
+        uuid form_id FK
+        int version "unique together with form_id"
+        jsonb document "frozen copy, never edited"
+        timestamp published_at
+    }
+
+    responses {
+        uuid id PK
+        uuid form_id FK
+        int form_version "which published version was filled in"
+        jsonb fields "the questions as they were, so tables stay correct"
+        jsonb answers "blockId to value"
+        int duration_ms
+        text device "phone, tablet or desktop"
+        boolean completed
+        text ip_hash "for spam limits, not the raw address"
+        timestamp submitted_at
+    }
+
+    brand_kits {
+        uuid id PK
+        uuid owner_id FK
+        text name "for example a client name"
+        jsonb theme "same shape as forms.design"
+        timestamp created_at
+        timestamp updated_at
+    }
+
+    assets {
+        uuid id PK
+        uuid owner_id FK
+        text kind "logo or background image"
+        text provider "cloudinary or drive"
+        text url
+        int size
+        timestamp created_at
+    }
+
+    files {
+        uuid id PK
+        uuid response_id FK
+        text provider "drive or cloudinary"
+        text provider_ref "id or url at the provider"
+        text name
+        int size
+        text mime
+    }
