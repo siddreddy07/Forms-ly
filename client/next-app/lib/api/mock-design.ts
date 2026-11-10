@@ -3,8 +3,8 @@ import type { CSSProperties } from "react"
 /* The form's design (Design tab). The UI reads it from this browser's storage so every change shows instantly,
    and this file also sends it to the backend (PATCH /forms/:id { design }) a moment after you stop changing it.
    The backend copy is the one that lasts: it is loaded back in when a form opens (see hydrateDesign).
-   Free: page background colour. Pro: everything else (accent colour, font, corners, width,
-   thank-you page, badge). The Pro parts are only applied when the account is Pro. */
+   Everyone gets every option: page background colour, accent colour, font, corners, width,
+   thank-you page and hiding the badge. */
 
 export const backgroundColors = [
   { id: "red", label: "Red", rgb: "239 68 68" },
@@ -59,9 +59,8 @@ export type WidthId = (typeof widths)[number]["id"]
 export type ThankYou = { title: string; message: string; buttonLabel: string; buttonUrl: string; redirectUrl: string }
 
 export type FormDesign = {
-  /* Free: the page behind the form. The form card itself is never tinted. */
+  /* The page behind the form. The form card itself is never tinted. */
   background: { color: BackgroundColorId; opacity: BackgroundOpacity } | null
-  /* Pro from here on */
   font: FontId
   accent: string | null
   radius: RadiusId
@@ -112,35 +111,34 @@ function readableOn(hex: string) {
   return (r! * 299 + g! * 587 + b! * 114) / 1000 > 150 ? "#111111" : "#ffffff"
 }
 
-/* The CSS for a form's page: background, plus the Pro look when the account is Pro.
+/* The CSS for a form's page: background, accent colour, font, corners and width.
    Everything is set as CSS variables, so the form's own styles pick it up. */
-export function designStyle(design: FormDesign | null, pro: boolean): CSSProperties {
+export function designStyle(design: FormDesign | null): CSSProperties {
   if (!design) return {}
   const style: Record<string, string> = {}
 
   const bg = backgroundCss(design)
   if (bg) style.backgroundColor = bg
 
-  if (pro) {
-    const family = fonts.find((f) => f.id === design.font)?.family
-    if (family) Object.assign(style, { "--font-sans": family, "--font-display": family, fontFamily: family })
+  const family = fonts.find((f) => f.id === design.font)?.family
+  if (family) Object.assign(style, { "--font-sans": family, "--font-display": family, fontFamily: family })
 
-    if (design.accent) {
-      Object.assign(style, { "--primary": design.accent, "--primary-foreground": readableOn(design.accent), "--ring": design.accent })
-    }
-
-    const radius = radii.find((r) => r.id === design.radius)?.value
-    if (radius) style["--radius"] = radius
-
-    const width = widths.find((w) => w.id === design.width)?.value
-    if (width) style["--form-width"] = width
+  if (design.accent) {
+    Object.assign(style, { "--primary": design.accent, "--primary-foreground": readableOn(design.accent), "--ring": design.accent })
   }
+
+  const radius = radii.find((r) => r.id === design.radius)?.value
+  if (radius) style["--radius"] = radius
+
+  const width = widths.find((w) => w.id === design.width)?.value
+  if (width) style["--form-width"] = width
+
   return style as CSSProperties
 }
 
-/* The thank-you screen, with defaults filled in. Pro only; free accounts always get the default. */
-export function thankYouFor(design: FormDesign | null, pro: boolean, options: { redirect: boolean }) {
-  const t = pro && design ? design.thankYou : defaultThankYou
+/* The thank-you screen, with defaults filled in. */
+export function thankYouFor(design: FormDesign | null, options: { redirect: boolean }) {
+  const t = design ? design.thankYou : defaultThankYou
   return {
     title: t.title.trim() || "Thank you",
     message: t.message.trim() || "Your response has been recorded.",

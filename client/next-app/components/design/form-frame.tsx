@@ -2,7 +2,6 @@
 
 import { useFormDesign } from "@/components/design/use-form-design"
 import { brand } from "@/lib/brand"
-import { useIsPro } from "@/lib/pro"
 import { cn } from "@/lib/utils"
 
 /* The white card the form sits in, with the "Made with" badge below.
@@ -23,9 +22,8 @@ export function FormFrame({
   children: React.ReactNode
 }) {
   const design = useFormDesign(formId)
-  const pro = useIsPro()
 
-  const showBadge = !(pro && design?.hideBadge)
+  const showBadge = !design?.hideBadge
 
   return (
     <div className={cn("mx-auto w-full max-w-[var(--form-width,36rem)]", className)}>

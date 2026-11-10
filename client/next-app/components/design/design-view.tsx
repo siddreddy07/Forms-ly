@@ -15,7 +15,6 @@ import { readPublishedDoc } from "@/lib/api/mock-meta"
 import { getFormDocument } from "@/lib/api/mock-schemas"
 import { readServerRecord } from "@/lib/api/mock-server"
 import { designStyle, thankYouFor, type FormDesign } from "@/lib/api/mock-design"
-import { useIsPro } from "@/lib/pro"
 import { createEmptyForm } from "@/lib/schema"
 import { cn } from "@/lib/utils"
 
@@ -110,7 +109,6 @@ function ViewToggle({ view, onChange }: { view: "form" | "thanks"; onChange: (v:
 
 export function DesignView({ formId }: { formId: string }) {
   const design = useFormDesign(formId)
-  const pro = useIsPro()
   const [open, setOpen] = React.useState(false)
   const [view, setView] = React.useState<"form" | "thanks">("form")
   const barRef = React.useRef<HTMLDivElement>(null)
@@ -155,11 +153,11 @@ export function DesignView({ formId }: { formId: string }) {
         <div className="overflow-hidden bg-background max-lg:min-h-[calc(100svh-7.5rem)] lg:rounded-xl lg:border">
           <div
             className="bg-muted/40 px-3 py-6 transition-colors max-lg:min-h-[calc(100svh-7.5rem)] sm:px-6 sm:py-10 lg:max-h-[75svh] lg:overflow-y-auto"
-            style={designStyle(design, pro)}
+            style={designStyle(design)}
           >
             {/* Read-only: inert blocks typing, clicking and focus, so this is only a picture. */}
             <FormFrame formId={formId} inert>
-              <FormRenderer form={doc} showEmptyBanner forceThankYou={view === "thanks"} thankYou={thankYouFor(design, pro, { redirect: false })} />
+              <FormRenderer form={doc} showEmptyBanner forceThankYou={view === "thanks"} thankYou={thankYouFor(design, { redirect: false })} />
             </FormFrame>
           </div>
         </div>
