@@ -20,6 +20,8 @@ export type PublishInfo = {
   hasChanges: boolean
   /* The 4 digit code that opens the form while it is private. Only the owner's own routes send it. */
   accessCode: string | null
+  /* Are AI features switched on for this form? Chosen in the Share tab, off by default. */
+  useAI: boolean
 }
 export type FormWithDocument = {
   form: import("@/lib/api/types").FormSummary

@@ -23,11 +23,14 @@ type Actions = {
   /* Call after a rename so the header and the other tabs show the new name. */
   setTitle: (title: string) => void
   /* Makes the saved version `baseVersion` live (the first time it also creates the link). */
-  publish: (baseVersion: number) => Promise<PublishResult>
+  /* useAI is sent with every publish; leave it out to send the form's saved choice. */
+  publish: (baseVersion: number, useAI?: boolean) => Promise<PublishResult>
   /* Takes it offline. The link stays reserved for this form. */
   unpublish: () => Promise<boolean>
   /* Public or private. Shows the change at once and puts it back if the server says no. */
   setAccess: (access: "public" | "private") => Promise<boolean>
+  /* AI features on or off for a live form. Shows the change at once and puts it back if the server says no. */
+  setUseAI: (on: boolean) => Promise<boolean>
 }
 
 type State = Actions & {
@@ -48,9 +51,9 @@ export function useFormState() {
 
 /* For everything inside <FormContent>, which only renders once the form has loaded. */
 export function useFormGate(): Loaded & Actions {
-  const { loaded, commit, setTitle, publish, unpublish, setAccess } = useFormState()
+  const { loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI } = useFormState()
   if (!loaded) throw new Error("useFormGate was used before the form loaded")
-  return React.useMemo(() => ({ ...loaded, commit, setTitle, publish, unpublish, setAccess }), [loaded, commit, setTitle, publish, unpublish, setAccess])
+  return React.useMemo(() => ({ ...loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI }), [loaded, commit, setTitle, publish, unpublish, setAccess, setUseAI])
 }
 
 /* Loads the form from the backend once for the whole form workspace (Build, Design, Share...).
@@ -142,10 +145,16 @@ export function FormGate({ formId, children }: { formId: string; children: React
     setLoaded((prev) => (prev ? { ...prev, form: { ...prev.form, title } } : prev))
   }, [])
 
+  const loadedRef = React.useRef(loaded)
+  React.useEffect(() => {
+    loadedRef.current = loaded
+  }, [loaded])
+
   const publish = React.useCallback<Actions["publish"]>(
-    async (baseVersion) => {
+    async (baseVersion, useAI) => {
       try {
-        const res = await api<PublishResponse>(`/forms/${formId}/publish`, { method: "POST", body: { baseVersion } })
+        const flag = useAI ?? loadedRef.current?.publishInfo.useAI ?? false
+        const res = await api<PublishResponse>(`/forms/${formId}/publish`, { method: "POST", body: { baseVersion, useAI: flag } })
         setLoaded((prev) => (prev ? { ...prev, form: { ...prev.form, ...res.form }, publishInfo: res.publish } : prev))
         return { ok: true }
       } catch (e) {
@@ -169,11 +178,6 @@ export function FormGate({ formId, children }: { formId: string; children: React
     }
   }, [api, formId])
 
-  const loadedRef = React.useRef(loaded)
-  React.useEffect(() => {
-    loadedRef.current = loaded
-  }, [loaded])
-
   const setAccess = React.useCallback<Actions["setAccess"]>(
     async (access) => {
       const before = loadedRef.current?.form.access ?? "public"
@@ -191,14 +195,30 @@ export function FormGate({ formId, children }: { formId: string; children: React
     [api, formId]
   )
 
+  const setUseAI = React.useCallback<Actions["setUseAI"]>(
+    async (on) => {
+      const before = loadedRef.current?.publishInfo.useAI ?? false
+      setLoaded((prev) => (prev ? { ...prev, publishInfo: { ...prev.publishInfo, useAI: on } } : prev))
+      try {
+        const res = await api<PublishResponse>(`/forms/${formId}`, { method: "PATCH", body: { useAI: on } })
+        setLoaded((prev) => (prev ? { ...prev, publishInfo: res.publish } : prev))
+        return true
+      } catch {
+        setLoaded((prev) => (prev ? { ...prev, publishInfo: { ...prev.publishInfo, useAI: before } } : prev))
+        return false
+      }
+    },
+    [api, formId]
+  )
+
   const retry = React.useCallback(() => {
     setError(null)
     setAttempt((n) => n + 1)
   }, [])
 
   const value = React.useMemo(
-    () => ({ loaded, error, retry, commit, setTitle, publish, unpublish, setAccess }),
-    [loaded, error, retry, commit, setTitle, publish, unpublish, setAccess]
+    () => ({ loaded, error, retry, commit, setTitle, publish, unpublish, setAccess, setUseAI }),
+    [loaded, error, retry, commit, setTitle, publish, unpublish, setAccess, setUseAI]
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
