@@ -1,10 +1,10 @@
 import type { Metadata } from "next"
-import { InboxIcon } from "lucide-react"
 
-import { SectionPlaceholder } from "@/components/workspace/section-placeholder"
+import { ResponsesView } from "@/components/responses/responses-view"
 
 export const metadata: Metadata = { title: "Responses" }
 
-export default function Page() {
-  return <SectionPlaceholder icon={InboxIcon} title="Responses" hint="Every submission, with filters and CSV export." />
+export default async function Page({ params }: { params: Promise<{ formId: string }> }) {
+  const { formId } = await params
+  return <ResponsesView formId={formId} />
 }

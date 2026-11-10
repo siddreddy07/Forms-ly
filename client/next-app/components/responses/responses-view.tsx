@@ -1,0 +1,194 @@
+"use client"
+
+import * as React from "react"
+import { DownloadIcon, InboxIcon, SearchIcon, Trash2Icon } from "lucide-react"
+import { toast } from "sonner"
+
+import { csvEscape, answerText } from "@/components/responses/format"
+import { useResponses } from "@/components/responses/use-responses"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { readPublishedDoc } from "@/lib/api/mock-meta"
+import { deleteResponse } from "@/lib/api/mock-responses"
+import { getFormDocument } from "@/lib/api/mock-schemas"
+import { readServerRecord } from "@/lib/api/mock-server"
+import { createEmptyForm, isAnswerBlock, type Block } from "@/lib/schema"
+
+const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+
+function Page({ children }: { children: React.ReactNode }) {
+  return <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+}
+
+/* Like a spreadsheet: one row per response, one column per question. */
+export function ResponsesView({ formId }: { formId: string }) {
+  const responses = useResponses(formId)
+  const [query, setQuery] = React.useState("")
+
+  /* Columns: the questions saved with each response (newest first), then any question the form has now that
+     they miss, so the headers are always there. */
+  const columns: Block[] = React.useMemo(() => {
+    if (responses === null) return []
+    const seen = new Map<string, Block>()
+    for (const r of responses) for (const f of r.fields ?? []) if (!seen.has(f.id)) seen.set(f.id, f)
+    const doc = readPublishedDoc(formId) ?? readServerRecord(formId, getFormDocument(formId) ?? createEmptyForm()).doc
+    for (const b of doc.steps.flatMap((st) => st.blocks)) if (isAnswerBlock(b.type) && !seen.has(b.id)) seen.set(b.id, b)
+    return [...seen.values()]
+  }, [formId, responses])
+
+  const rows = React.useMemo(() => {
+    if (!responses) return []
+    const q = query.trim().toLowerCase()
+    return responses
+      .map((r, i) => ({ r, number: responses.length - i, cells: columns.map((c) => answerText(c, r.answers[c.id])) }))
+      .filter(({ r, cells }) => !q || cells.some((c) => c.toLowerCase().includes(q)) || when(r.submittedAt).toLowerCase().includes(q))
+  }, [responses, columns, query])
+
+  if (responses === null) {
+    return (
+      <Page>
+        <div className="h-10 w-48 animate-pulse rounded-lg bg-muted/40" />
+        <div className="h-64 animate-pulse rounded-xl border bg-muted/30" />
+      </Page>
+    )
+  }
+
+  if (responses.length === 0) {
+    return (
+      <Page>
+        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
+          <span className="inline-flex size-12 items-center justify-center rounded-xl border bg-card">
+            <InboxIcon className="size-5 text-muted-foreground" aria-hidden="true" />
+          </span>
+          <h2 className="mt-4 font-display text-2xl font-medium tracking-tight">No responses yet</h2>
+          <p className="mt-1 max-w-xs text-sm text-muted-foreground">Answers show up here as a table once people submit your form.</p>
+        </div>
+      </Page>
+    )
+  }
+
+  function exportCsv() {
+    const head = ["Submitted", ...columns.map((c) => c.label || "Untitled question")]
+    const lines = [head, ...rows.map(({ r, cells }) => [r.submittedAt, ...cells])].map((l) => l.map(csvEscape).join(","))
+    const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }))
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `responses-${formId}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const total = responses.length
+
+  return (
+    <Page>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="font-display text-2xl font-medium tracking-tight">Responses</h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {rows.length === total ? `${total} ${total === 1 ? "response" : "responses"}` : `Showing ${rows.length} of ${total}`}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative">
+            <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search answers"
+              aria-label="Search answers"
+              className="h-9 w-full pl-9 sm:w-64"
+            />
+          </div>
+          <Button variant="outline" size="lg" onClick={exportCsv}>
+            <DownloadIcon /> Export CSV
+          </Button>
+        </div>
+      </div>
+
+      {/* Phones: one card per response. */}
+      <ul className="grid gap-3 sm:hidden">
+        {rows.map(({ r, cells }) => (
+          <li key={r.id} className="rounded-xl border bg-card">
+            <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
+              <span className="text-xs text-muted-foreground">{when(r.submittedAt)}</span>
+              <DeleteButton formId={formId} id={r.id} />
+            </div>
+            <dl className="grid gap-3 p-4">
+              {columns.map((c, ci) =>
+                cells[ci] ? (
+                  <div key={c.id} className="grid gap-0.5">
+                    <dt className="text-xs font-medium text-muted-foreground">{c.label || "Untitled question"}</dt>
+                    <dd className="break-words text-sm">{cells[ci]}</dd>
+                  </div>
+                ) : null
+              )}
+            </dl>
+          </li>
+        ))}
+        {rows.length === 0 && <li className="rounded-xl border border-dashed py-10 text-center text-sm text-muted-foreground">Nothing matches your search.</li>}
+      </ul>
+
+      {/* Larger screens: a table that scrolls sideways when there are many questions. */}
+      <div className="hidden overflow-hidden rounded-xl border bg-card sm:block">
+        <Table>
+          <TableHeader className="bg-muted/40">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-11 w-14 px-4 text-xs text-muted-foreground">#</TableHead>
+              <TableHead className="h-11 px-4 text-xs text-muted-foreground">Submitted</TableHead>
+              {columns.map((c) => (
+                <TableHead key={c.id} className="h-11 min-w-40 px-4">
+                  {c.label || "Untitled question"}
+                </TableHead>
+              ))}
+              <TableHead className="h-11 w-14 px-4">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(({ r, number, cells }) => (
+              <TableRow key={r.id}>
+                <TableCell className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{number}</TableCell>
+                <TableCell className="px-4 py-3 text-muted-foreground">{when(r.submittedAt)}</TableCell>
+                {cells.map((text, ci) => (
+                  <TableCell key={columns[ci].id} className="max-w-72 truncate px-4 py-3" title={text}>
+                    {text || <span className="text-muted-foreground/50">-</span>}
+                  </TableCell>
+                ))}
+                <TableCell className="px-4 py-2 text-right">
+                  <DeleteButton formId={formId} id={r.id} />
+                </TableCell>
+              </TableRow>
+            ))}
+            {rows.length === 0 && (
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={columns.length + 3} className="px-4 py-12 text-center text-muted-foreground">
+                  Nothing matches your search.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+    </Page>
+  )
+}
+
+function DeleteButton({ formId, id }: { formId: string; id: string }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label="Delete this response"
+      className="text-muted-foreground hover:text-destructive"
+      onClick={() => {
+        deleteResponse(formId, id)
+        toast("Response deleted")
+      }}
+    >
+      <Trash2Icon />
+    </Button>
+  )
+}

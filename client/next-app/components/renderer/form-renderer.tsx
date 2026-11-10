@@ -42,6 +42,8 @@ function FormRenderer({
   const [index, setIndex] = React.useState(0)
   const [submitting, setSubmitting] = React.useState(false)
   const [done, setDone] = React.useState(false)
+  const [closeBlocked, setCloseBlocked] = React.useState(false)
+  const [submitError, setSubmitError] = React.useState<string | null>(null)
   const root = React.useRef<HTMLFormElement>(null)
 
   const effectiveMode = mode ?? form.mode
@@ -106,9 +108,12 @@ function FormRenderer({
     }
 
     setSubmitting(true)
+    setSubmitError(null)
     try {
       await onSubmit?.(all.data)
       setDone(true)
+    } catch (err) {
+      setSubmitError(err instanceof Error && err.message ? err.message : "Couldn't send your answers. Try again.")
     } finally {
       setSubmitting(false)
     }
@@ -120,7 +125,7 @@ function FormRenderer({
         <CheckCircle2Icon className="size-10" aria-hidden="true" />
         <h2 className="mt-4 font-display text-2xl font-medium tracking-tight">{thankYou.title}</h2>
         {thankYou.message && <p className="mt-1 text-muted-foreground">{thankYou.message}</p>}
-        {allowAnother && (
+        {allowAnother ? (
           <Button
             variant="outline"
             className="mt-6"
@@ -129,10 +134,26 @@ function FormRenderer({
               setErrors({})
               setIndex(0)
               setDone(false)
+              setSubmitError(null)
             }}
           >
             Fill it in again
           </Button>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              className="mt-6"
+              onClick={() => {
+                window.close()
+                /* Browsers only close tabs a script opened; if this one stays, say so. */
+                setTimeout(() => setCloseBlocked(true), 200)
+              }}
+            >
+              Close this tab
+            </Button>
+            {closeBlocked && <p className="mt-3 text-sm text-muted-foreground">You can close this tab now.</p>}
+          </>
         )}
       </div>
     )
@@ -190,6 +211,12 @@ function FormRenderer({
           </div>
         ))}
       </div>
+
+      {submitError && (
+        <p role="alert" className="mt-6 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm">
+          {submitError}
+        </p>
+      )}
 
       <div className="mt-8 flex items-center justify-between gap-3">
         {index > 0 ? (
