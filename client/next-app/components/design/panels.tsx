@@ -3,6 +3,7 @@
 import * as React from "react"
 import { BanIcon, CheckIcon } from "lucide-react"
 
+import { PendingLock, hold } from "@/components/ui/pending-lock"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -166,6 +167,7 @@ export function ColourPanel({ formId, design }: PanelProps) {
 /* ---------- Brand: accent colour, corners, width, badge ---------- */
 
 export function BrandPanel({ formId, design }: PanelProps) {
+  const [badgePending, setBadgePending] = React.useState(false)
 
   return (
     <div className="grid gap-5">
@@ -231,10 +233,23 @@ export function BrandPanel({ formId, design }: PanelProps) {
         </FieldRow>
       </Section>
 
-      <label className="flex items-center justify-between gap-3 text-sm">
-        <span>Remove “Made with {brand.name}”</span>
-        <Switch className="after:-inset-x-1" checked={design.hideBadge} onCheckedChange={(on) => setHideBadge(formId, on)} aria-label="Remove the Made with badge" />
-      </label>
+      {/* A click locks the switch for a few seconds, then the change is saved. */}
+      <PendingLock pending={badgePending} className="rounded-lg">
+        <label className="flex items-center justify-between gap-3 rounded-lg text-sm">
+          <span>Remove “Made with {brand.name}”</span>
+          <Switch
+            className="after:-inset-x-1"
+            checked={design.hideBadge}
+            onCheckedChange={async (on) => {
+              setBadgePending(true)
+              await hold()
+              setHideBadge(formId, on)
+              setBadgePending(false)
+            }}
+            aria-label="Remove the Made with badge"
+          />
+        </label>
+      </PendingLock>
 
     </div>
   )
