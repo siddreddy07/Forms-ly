@@ -272,3 +272,23 @@
 @media (prefers-reduced-motion: reduce) {
   [data-sonner-toast].cn-toast[data-mounted="true"][data-styled="true"] { animation: none; }
 }
+
+/* ---------- 404 page (components/not-found/not-found-scene.tsx) ---------- */
+/* The three rings drop in one after another when the page opens. That is the page's one moment of motion. */
+@keyframes nf-drop {
+  0% { transform: translateY(-160%) scale(0.92); opacity: 0; }
+  55% { transform: translateY(7%); opacity: 1; }
+  78% { transform: translateY(-3%); }
+  100% { transform: none; opacity: 1; }
+}
+/* The controller hovers, barely. */
+@keyframes nf-float {
+  0%, 100% { transform: translateY(0) rotate(-0.4deg); }
+  50% { transform: translateY(-8px) rotate(0.4deg); }
+}
+.nf-drop { animation: nf-drop 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--d, 0ms); }
+.nf-float { animation: nf-float 7s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .nf-drop, .nf-float { animation: none; }
+}
+
