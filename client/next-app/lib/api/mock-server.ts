@@ -43,3 +43,13 @@ export async function saveToServer(formId: string, doc: FormDocument, baseVersio
   }
   return { ok: true, version: next.version, updatedAt: next.updatedAt }
 }
+
+/* While the other tabs (Design, Share...) still read forms from browser storage, the form workspace copies the
+   real saved form here whenever it loads or saves, so they all show the same document. Removed once they use the API. */
+export function cacheServerRecord(formId: string, doc: FormDocument, version: number, updatedAt: string | null) {
+  try {
+    window.localStorage.setItem(key(formId), JSON.stringify({ doc, version, updatedAt }))
+  } catch {
+    /* storage unavailable or full: those tabs just show a blank form */
+  }
+}

@@ -3,9 +3,9 @@ import Link from "next/link"
 import { UserButton } from "@clerk/nextjs"
 
 import { HeaderActions, StatusBadge } from "@/components/workspace/header-actions"
-import type { FormStatus } from "@/lib/api/types"
+import { FormTitle } from "@/components/workspace/form-title"
 
-function WorkspaceHeader({ formId, title, status }: { formId: string; title: string; status: FormStatus }) {
+function WorkspaceHeader({ formId }: { formId: string }) {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur-xl lg:border-b-0">
       <div className="mx-auto flex h-14 max-w-[1800px] items-center gap-1.5 px-2 sm:gap-2 sm:px-6">
@@ -16,8 +16,8 @@ function WorkspaceHeader({ formId, title, status }: { formId: string; title: str
         >
           <ArrowLeftIcon className="size-4" />
         </Link>
-        <h1 className="min-w-0 truncate font-display text-lg font-medium tracking-tight">{title}</h1>
-        <StatusBadge formId={formId} fallback={status} />
+        <h1 className="min-w-0 truncate font-display text-lg font-medium tracking-tight"><FormTitle /></h1>
+        <StatusBadge formId={formId} fallback="draft" />
         <HeaderActions formId={formId} />
         <UserButton />
       </div>

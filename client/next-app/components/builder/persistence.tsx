@@ -7,10 +7,15 @@ import { useBuilderStore } from "@/components/builder/builder-context"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { publishForm } from "@/lib/api/mock-meta"
-import { readServerRecord, saveToServer, type ServerRecord } from "@/lib/api/mock-server"
+import { useFormGate } from "@/components/workspace/form-gate"
+import { ApiError, useApi } from "@/lib/api/http"
+import type { ConflictResponse, SaveResponse } from "@/lib/api/forms"
 import { clearDraft, readDraft, summarizeChanges, writeDraft, type Draft } from "@/lib/builder/draft"
 import { timeAgo } from "@/lib/time"
-import type { FormDocument } from "@/lib/schema"
+import { parseForm, type FormDocument } from "@/lib/schema"
+
+/* What the server has: a document, its version and when it was saved. */
+type ServerRecord = { doc: FormDocument; version: number; updatedAt: string | null }
 
 /* dirty: edited, local backup pending. drafted: backed up on this device, not on the server. */
 export type SaveStatus = "saved" | "dirty" | "drafted" | "saving" | "error"
@@ -47,6 +52,8 @@ const sameDoc = (a: FormDocument, b: FormDocument) => JSON.stringify(a) === JSON
    The editor always works from memory; the backup is only read once, when the builder opens. */
 export function PersistenceProvider({ formId, initial, children }: { formId: string; initial: FormDocument; children: React.ReactNode }) {
   const store = useBuilderStore()
+  const api = useApi()
+  const gate = useFormGate()
   const [status, setStatus] = React.useState<SaveStatus>("saved")
   const [savedAt, setSavedAt] = React.useState<string | null>(null)
   const [backupFailed, setBackupFailed] = React.useState(false)
@@ -102,10 +109,9 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
   React.useEffect(() => {
     /* Browser storage can only be read after mount, so state is set here on purpose. */
     /* eslint-disable react-hooks/set-state-in-effect */
-    const server = readServerRecord(formId, initial)
+    const server: ServerRecord = { doc: gate.doc, version: gate.version, updatedAt: gate.updatedAt }
     baseVersion.current = server.version
     setVersion(server.version)
-    if (server.version > 1) loadDoc(server.doc)
     savedDoc.current = store.getState().doc
     setSavedAt(server.updatedAt)
 
@@ -145,7 +151,18 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     if (doc === savedDoc.current && statusRef.current !== "error") return true
     saving.current = true
     setStatusBoth("saving")
-    const res = await saveToServer(formId, doc, baseVersion.current, initial)
+    let res: { ok: true; version: number; updatedAt: string; title?: string } | { ok: false; reason: "conflict"; server: ServerRecord } | { ok: false; reason: "network" }
+    try {
+      const saved = await api<SaveResponse>(`/forms/${formId}`, { method: "PUT", body: { document: doc, baseVersion: baseVersion.current } })
+      res = { ok: true, ...saved }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        const latest = e.body as ConflictResponse
+        res = { ok: false, reason: "conflict", server: { doc: parseForm(latest.document), version: latest.version, updatedAt: latest.updatedAt } }
+      } else {
+        res = { ok: false, reason: "network" }
+      }
+    }
     saving.current = false
 
     if (res.ok) {
@@ -153,6 +170,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
       setVersion(res.version)
       savedDoc.current = doc
       setSavedAt(res.updatedAt)
+      gate.commit({ doc, version: res.version, updatedAt: res.updatedAt, title: res.title })
       setStatusBoth(store.getState().doc === doc ? "saved" : "dirty")
       flush()
       toast.success("Saved")
@@ -166,7 +184,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
       toast.error("Couldn't save. Check your connection and try again. Your changes are still here.", { action: { label: "Retry", onClick: () => saveRef.current() } })
     }
     return false
-  }, [store, formId, initial, flush, setStatusBoth])
+  }, [store, formId, api, gate, flush, setStatusBoth])
 
   React.useEffect(() => {
     saveRef.current = () => void save()

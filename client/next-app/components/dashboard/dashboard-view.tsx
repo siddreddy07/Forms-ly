@@ -9,8 +9,10 @@ import { FilterBar, FilterDrawer, type FolderFilter, type SortKey } from "@/comp
 import type { FormActions } from "@/components/dashboard/form-actions-menu"
 import { FormCard } from "@/components/dashboard/form-card"
 import { NewFormDialog } from "@/components/dashboard/new-form-dialog"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { mockForms } from "@/lib/api/mock-forms"
+import { documentForTemplate, type FormListResponse, type FormResponse } from "@/lib/api/forms"
+import { useApi } from "@/lib/api/http"
 import type { FormSummary } from "@/lib/api/types"
 
 function SearchField({
@@ -38,70 +40,102 @@ function SearchField({
 }
 
 function DashboardView() {
+  const api = useApi()
   const [query, setQuery] = React.useState("")
   const searchRef = React.useRef<HTMLDivElement>(null)
   const [dockVisible, setDockVisible] = React.useState(false)
-  const [all, setAll] = React.useState<FormSummary[]>(mockForms)
+  const [all, setAll] = React.useState<FormSummary[]>([])
+  const [loadState, setLoadState] = React.useState<"loading" | "ready" | "error">("loading")
+  const [attempt, setAttempt] = React.useState(0)
   const [filter, setFilter] = React.useState<FolderFilter>("all")
   const [sort, setSort] = React.useState<SortKey>("recent")
 
-  function createForm({ title }: { title: string; templateId: string }) {
-    setAll((prev) => [
-      { id: `f_${Date.now()}`, title, status: "draft", responses: 0, updatedAt: new Date().toISOString(), archived: false },
-      ...prev,
-    ])
-    setFilter("all")
-    toast.success("Form created")
+  /* Load every form (live and archived) from the backend. */
+  React.useEffect(() => {
+    let cancelled = false
+    Promise.all([api<FormListResponse>("/forms"), api<FormListResponse>("/forms?archived=true")])
+      .then(([live, archived]) => {
+        if (cancelled) return
+        setAll([...live.forms, ...archived.forms])
+        setLoadState("ready")
+      })
+      .catch(() => {
+        if (!cancelled) setLoadState("error")
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [api, attempt])
+
+  const replace = (form: FormSummary) => setAll((prev) => prev.map((f) => (f.id === form.id ? { ...f, ...form } : f)))
+  const failed = (what: string) => toast.error(`Couldn't ${what}. Check your connection and try again.`)
+
+  async function createForm({ title, templateId }: { title: string; templateId: string }) {
+    try {
+      const { form } = await api<FormResponse>("/forms", { method: "POST", body: { title, document: documentForTemplate(templateId) } })
+      setAll((prev) => [form, ...prev])
+      setFilter("all")
+      toast.success("Form created")
+    } catch {
+      failed("create the form")
+    }
   }
 
   const actions: FormActions = {
-    onDuplicate(id) {
-      setAll((prev) => {
-        const src = prev.find((f) => f.id === id)
-        if (!src) return prev
-        const copy: FormSummary = {
-          ...src,
-          id: `f_${Date.now()}`,
-          title: `${src.title} (copy)`,
-          status: "draft",
-          responses: 0,
-          archived: false,
-          updatedAt: new Date().toISOString(),
-        }
-        return [copy, ...prev]
-      })
-      toast.success("Form duplicated")
+    async onDuplicate(id) {
+      try {
+        const { form } = await api<FormResponse>(`/forms/${id}/duplicate`, { method: "POST" })
+        setAll((prev) => [form, ...prev])
+        toast.success("Form duplicated")
+      } catch {
+        failed("duplicate the form")
+      }
     },
-    onArchive(id) {
+    async onArchive(id) {
       const src = all.find((f) => f.id === id)
       if (!src) return
-      const next = !src.archived
-      setAll((prev) => prev.map((f) => (f.id === id ? { ...f, archived: next } : f)))
-      toast(next ? "Form archived" : "Form restored", {
-        action: {
-          label: "Undo",
-          onClick: () =>
-            setAll((prev) => prev.map((f) => (f.id === id ? { ...f, archived: !next } : f))),
-        },
-      })
+      const archiving = !src.archived
+      const change = async (archive: boolean) => {
+        const { form } = await api<FormResponse>(`/forms/${id}/${archive ? "archive" : "restore"}`, { method: "POST" })
+        replace(form)
+      }
+      try {
+        await change(archiving)
+        toast(archiving ? "Form archived" : "Form restored", {
+          action: { label: "Undo", onClick: () => void change(!archiving).catch(() => failed("undo")) },
+        })
+      } catch {
+        failed(archiving ? "archive the form" : "restore the form")
+      }
     },
     onDelete(id) {
       const index = all.findIndex((f) => f.id === id)
       if (index < 0) return
       const removed = all[index]
       setAll((prev) => prev.filter((f) => f.id !== id))
+      /* Deleting is permanent, so we wait a few seconds first. Undo cancels it. */
+      const timer = setTimeout(() => {
+        api(`/forms/${id}`, { method: "DELETE" }).catch(() => {
+          setAll((prev) => (prev.some((f) => f.id === id) ? prev : [removed, ...prev]))
+          failed("delete the form")
+        })
+      }, 5000)
       toast("Form deleted", {
+        duration: 5000,
         action: {
           label: "Undo",
-          onClick: () =>
+          onClick: () => {
+            clearTimeout(timer)
             setAll((prev) => {
               const copy = [...prev]
               copy.splice(Math.min(index, copy.length), 0, removed)
               return copy
-            }),
+            })
+          },
         },
       })
     },
+    /* Folders are not saved by the backend yet, so for now this only lasts until the page reloads. */
     onMove(id, folder) {
       setAll((prev) => prev.map((f) => (f.id === id ? { ...f, folder } : f)))
       toast.success(folder ? `Moved to ${folder}` : "Removed from folder")
@@ -181,7 +215,26 @@ function DashboardView() {
 
       <div className="mx-auto w-full max-w-7xl px-4 pb-28 sm:px-6 lg:pt-2 lg:pb-12">
         <FilterBar {...filterProps} />
-        {forms.length > 0 ? (
+        {loadState === "loading" ? (
+          <ul className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label="Loading your forms">
+            {Array.from({ length: 4 }, (_, i) => (
+              <li key={i} className="h-28 animate-pulse rounded-xl border bg-muted/50 sm:h-52" />
+            ))}
+          </ul>
+        ) : loadState === "error" ? (
+          <div className="mt-16 grid justify-items-center gap-3 text-center">
+            <p className="text-muted-foreground">Couldn&apos;t load your forms. Check your connection.</p>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLoadState("loading")
+                setAttempt((n) => n + 1)
+              }}
+            >
+              Try again
+            </Button>
+          </div>
+        ) : forms.length > 0 ? (
           <ul className="mt-0 grid gap-3 lg:mt-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             {forms.map((form) => (
               <li key={form.id} className="h-full">
