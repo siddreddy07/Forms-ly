@@ -1,23 +1,20 @@
-﻿import { ArchiveIcon, FileTextIcon, FolderOpenIcon } from "lucide-react"
+﻿import { ArchiveIcon, FileTextIcon } from "lucide-react"
 
 import { NewFormDialog } from "@/components/dashboard/new-form-dialog"
 
 type Props = {
-  kind: "none" | "folder" | "archived"
-  folder?: string
+  kind: "none" | "archived"
   onCreate: (input: { title: string; templateId: string }) => void
 }
 
-function EmptyState({ kind, folder, onCreate }: Props) {
-  const Icon = kind === "archived" ? ArchiveIcon : kind === "folder" ? FolderOpenIcon : FileTextIcon
+function EmptyState({ kind, onCreate }: Props) {
+  const Icon = kind === "archived" ? ArchiveIcon : FileTextIcon
   const title =
-    kind === "none" ? "No forms yet" : kind === "folder" ? `Nothing in ${folder}` : "No archived forms"
+    kind === "none" ? "No forms yet" : "No archived forms"
   const hint =
     kind === "none"
       ? "Pick a template, edit it, share the link."
-      : kind === "folder"
-        ? "Move a form here from its menu, or create one."
-        : "Forms you archive show up here."
+      : "Forms you archive show up here."
 
   return (
     <div className="mx-auto mt-12 flex max-w-xs flex-col items-center text-center">

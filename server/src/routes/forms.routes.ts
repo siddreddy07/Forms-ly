@@ -47,6 +47,31 @@ const designSchema = z.object({
   hideBadge: z.boolean(),
 })
 
+// A small cut-down piece of the form for the dashboard card: the heading and the first few questions, nothing more.
+// It is made here so the list does not have to send every form's whole document.
+const PREVIEW_BLOCKS = 5
+
+function previewOf(form: Form) {
+  const draft = (form.draft ?? {}) as { header?: { title?: unknown; description?: unknown }; steps?: { blocks?: unknown[] }[] }
+  const first = Array.isArray(draft.steps) ? draft.steps[0] : undefined
+  const blocks = (Array.isArray(first?.blocks) ? first.blocks : []).slice(0, PREVIEW_BLOCKS).map((raw) => {
+    const b = (raw ?? {}) as { id?: unknown; type?: unknown; label?: unknown; content?: unknown; options?: { label?: unknown }[] }
+    return {
+      id: String(b.id ?? ""),
+      type: String(b.type ?? ""),
+      label: typeof b.label === "string" ? b.label.slice(0, 80) : "",
+      content: typeof b.content === "string" ? b.content.slice(0, 120) : "",
+      options: Array.isArray(b.options) ? b.options.slice(0, 3).map((o) => (typeof o?.label === "string" ? o.label.slice(0, 40) : "")) : [],
+    }
+  })
+  return {
+    title: typeof draft.header?.title === "string" ? draft.header.title.slice(0, 120) : "",
+    description: typeof draft.header?.description === "string" ? draft.header.description.slice(0, 160) : "",
+    blocks,
+    design: form.design,
+  }
+}
+
 // What we send to the browser for one form (no document, used in lists)
 function summary(form: Form, responseCount = 0) {
   return {
@@ -58,6 +83,7 @@ function summary(form: Form, responseCount = 0) {
     responses: responseCount,
     updatedAt: form.updatedAt,
     archived: form.archivedAt !== null,
+    preview: previewOf(form),
   }
 }
 

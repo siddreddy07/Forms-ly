@@ -5,7 +5,6 @@ import {
   ArchiveIcon,
   ArrowUpDownIcon,
   CheckIcon,
-  FolderIcon,
   LayoutGridIcon,
   SlidersHorizontalIcon,
 } from "lucide-react"
@@ -36,30 +35,23 @@ export const sortLabels: Record<SortKey, string> = {
   responses: "Most responses",
 }
 
-export type FolderFilter = "all" | "archived" | `folder:${string}`
+export type FolderFilter = "all" | "archived"
 
 function FilterBar({
   filter,
   onFilter,
-  folders,
   counts,
   sort,
   onSort,
 }: {
   filter: FolderFilter
   onFilter: (f: FolderFilter) => void
-  folders: string[]
-  counts: { all: number; archived: number; byFolder: Record<string, number> }
+  counts: { all: number; archived: number }
   sort: SortKey
   onSort: (s: SortKey) => void
 }) {
   const chips: { key: FolderFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: counts.all },
-    ...folders.map((f) => ({
-      key: `folder:${f}` as FolderFilter,
-      label: f,
-      count: counts.byFolder[f] ?? 0,
-    })),
     { key: "archived", label: "Archived", count: counts.archived },
   ]
 
@@ -67,7 +59,7 @@ function FilterBar({
     <div className="hidden items-center gap-2 lg:flex">
       <div
         role="tablist"
-        aria-label="Folders"
+        aria-label="Forms"
         className="-mx-4 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >
         {chips.map((c) => {
@@ -118,18 +110,12 @@ function FilterBar({
 type FilterProps = Parameters<typeof FilterBar>[0]
 
 /* Phone and tablet: filters and sorting live in a bottom drawer, within thumb reach. */
-function FilterDrawer({ filter, onFilter, folders, counts, sort, onSort }: FilterProps) {
+function FilterDrawer({ filter, onFilter, counts, sort, onSort }: FilterProps) {
   const [open, setOpen] = React.useState(false)
   const active = filter !== "all" || sort !== "recent"
 
-  const rows: { key: FolderFilter; label: string; count: number; icon: typeof FolderIcon }[] = [
+  const rows: { key: FolderFilter; label: string; count: number; icon: typeof LayoutGridIcon }[] = [
     { key: "all", label: "All forms", count: counts.all, icon: LayoutGridIcon },
-    ...folders.map((f) => ({
-      key: `folder:${f}` as FolderFilter,
-      label: f,
-      count: counts.byFolder[f] ?? 0,
-      icon: FolderIcon,
-    })),
     { key: "archived", label: "Archived", count: counts.archived, icon: ArchiveIcon },
   ]
 
@@ -159,11 +145,11 @@ function FilterDrawer({ filter, onFilter, folders, counts, sort, onSort }: Filte
         className="data-[side=bottom]:rounded-t-2xl gap-0 p-0"
       >
         <SheetTitle className="sr-only">Filter and sort</SheetTitle>
-        <SheetDescription className="sr-only">Choose a folder and a sort order</SheetDescription>
+        <SheetDescription className="sr-only">Choose which forms to show and a sort order</SheetDescription>
         <div aria-hidden="true" className="mx-auto mt-2.5 h-1 w-9 rounded-full bg-border" />
 
         <div className="max-h-[70svh] overflow-y-auto px-3 pt-3 pb-2">
-          <p className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">Folder</p>
+          <p className="px-2.5 pb-1 text-xs font-medium text-muted-foreground">Show</p>
           <ul>
             {rows.map((r) => {
               const on = r.key === filter

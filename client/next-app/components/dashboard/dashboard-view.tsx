@@ -147,19 +147,12 @@ function DashboardView() {
         },
       })
     },
-    /* Folders are not saved by the backend yet, so for now this only lasts until the page reloads. */
-    onMove(id, folder) {
-      setAll((prev) => prev.map((f) => (f.id === id ? { ...f, folder } : f)))
-      toast.success(folder ? `Moved to ${folder}` : "Removed from folder")
-    },
   }
 
-  const folders = Array.from(new Set(all.map((f) => f.folder).filter((f): f is string => !!f))).sort()
   const live = all.filter((f) => !f.archived)
   const counts = {
     all: live.length,
     archived: all.length - live.length,
-    byFolder: Object.fromEntries(folders.map((f) => [f, live.filter((x) => x.folder === f).length])),
   }
 
   /* Show the bottom dock only once the inline search has scrolled out of view. */
@@ -179,14 +172,12 @@ function DashboardView() {
     }
   }, [])
 
-  const filterProps = { filter, onFilter: setFilter, folders, counts, sort, onSort: setSort }
+  const filterProps = { filter, onFilter: setFilter, counts, sort, onSort: setSort }
 
   const q = query.trim().toLowerCase()
   const forms = all
     .filter((f) =>
-      filter === "archived"
-        ? f.archived
-        : !f.archived && (filter === "all" || f.folder === filter.slice("folder:".length))
+      filter === "archived" ? f.archived : !f.archived
     )
     .filter((f) => f.title.toLowerCase().includes(q))
     .sort((a, b) =>
@@ -250,7 +241,7 @@ function DashboardView() {
           <ul className="mt-0 grid gap-3 lg:mt-4 @min-[592px]:grid-cols-2 @min-[592px]:gap-5 @min-[976px]:grid-cols-3 @min-[1232px]:grid-cols-4">
             {forms.map((form) => (
               <li key={form.id} className="h-full">
-                <FormCard form={form} folders={folders} actions={actions} />
+                <FormCard form={form} actions={actions} />
               </li>
             ))}
           </ul>
@@ -260,8 +251,7 @@ function DashboardView() {
           </p>
         ) : (
           <EmptyState
-            kind={filter === "archived" ? "archived" : filter === "all" ? "none" : "folder"}
-            folder={filter.startsWith("folder:") ? filter.slice(7) : undefined}
+            kind={filter === "archived" ? "archived" : "none"}
             onCreate={createForm}
           />
         )}

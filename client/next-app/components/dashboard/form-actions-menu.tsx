@@ -5,9 +5,7 @@ import * as React from "react"
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
-  CheckIcon,
   CopyIcon,
-  FolderIcon,
   MoreHorizontalIcon,
   PencilIcon,
 } from "lucide-react"
@@ -17,9 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Trash2 } from "@/components/animate-ui/icons/trash-2"
@@ -31,16 +26,13 @@ export type FormActions = {
   onDuplicate: (id: string) => void
   onArchive: (id: string) => void
   onDelete: (id: string) => void
-  onMove: (id: string, folder: string | undefined) => void
 }
 
 function FormActionsMenu({
   form,
-  folders,
   actions,
 }: {
   form: FormSummary
-  folders: string[]
   actions: FormActions
 }) {
   const [renaming, setRenaming] = React.useState(false)
@@ -60,23 +52,6 @@ function FormActionsMenu({
         <DropdownMenuItem onClick={() => actions.onDuplicate(form.id)}>
           <CopyIcon /> Duplicate
         </DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>
-            <FolderIcon /> Move to
-          </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="min-w-44">
-            <DropdownMenuItem onClick={() => actions.onMove(form.id, undefined)}>
-              No folder
-              {!form.folder && <CheckIcon className="ml-auto" />}
-            </DropdownMenuItem>
-            {folders.map((f) => (
-              <DropdownMenuItem key={f} onClick={() => actions.onMove(form.id, f)}>
-                {f}
-                {form.folder === f && <CheckIcon className="ml-auto" />}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
         <DropdownMenuItem onClick={() => actions.onArchive(form.id)}>
           {form.archived ? <ArchiveRestoreIcon /> : <ArchiveIcon />}
           {form.archived ? "Restore" : "Archive"}
