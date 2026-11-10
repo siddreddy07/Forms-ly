@@ -10,6 +10,8 @@ export const formAccess = pgEnum("form_access", ["public", "private"])
 export const deviceType = pgEnum("device_type", ["phone", "tablet", "desktop"])
 // "imagekit" is the one in use. The other two are old values kept so existing rows stay valid.
 export const storageProvider = pgEnum("storage_provider", ["drive", "cloudinary", "imagekit"])
+// The AI companies a user can bring their own key for. Keep in step with aiProviders in config/ai.ts.
+export const aiProvider = pgEnum("ai_provider", ["openai", "anthropic", "google", "groq"])
 export const assetKind = pgEnum("asset_kind", ["logo", "background"])
 
 // Handy shortcut for the created/updated columns
@@ -45,6 +47,23 @@ export const storageConnections = pgTable("storage_connections", {
   publicKey: text("public_key").notNull(),
   // The private key, encrypted (libs/crypto.ts). It is never sent to the browser.
   privateKeyEnc: text("private_key_enc").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+})
+
+// ---------- ai_connections: a user's own AI provider, model and key, for the AI features ----------
+// One per user. The key is paid for by the user, so it is encrypted here (libs/crypto.ts) and never sent back.
+
+export const aiConnections = pgTable("ai_connections", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  provider: aiProvider("provider").notNull(),
+  // The model id the user chose, for example "claude-sonnet-5-5"
+  model: text("model").notNull(),
+  apiKeyEnc: text("api_key_enc").notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 })
@@ -113,6 +132,9 @@ export const forms = pgTable(
     design: jsonb("design").$type<Record<string, unknown>>().notNull().default({}),
     // Response limit, close date, and so on (later)
     settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
+    // The fields the Responses table can be filtered by (see libs/filterFields.ts), kept up to date on every publish
+    // so reading them is a plain lookup. Empty until the form is first published.
+    filterFields: jsonb("filter_fields").$type<unknown[]>(),
     // Which row in form_versions is live. Empty while unpublished.
     publishedVersion: integer("published_version"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -197,6 +219,7 @@ export const files = pgTable(
 
 export type User = typeof users.$inferSelect
 export type NewUser = typeof users.$inferInsert
+export type AiConnection = typeof aiConnections.$inferSelect
 export type StorageConnection = typeof storageConnections.$inferSelect
 export type Asset = typeof assets.$inferSelect
 export type BrandKit = typeof brandKits.$inferSelect
