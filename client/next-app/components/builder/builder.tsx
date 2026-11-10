@@ -107,6 +107,7 @@ function Toolbar({ onPreview }: { onPreview: () => void }) {
 }
 
 function BuilderShell() {
+  const { formId } = useSave()
   const addBlock = useBuilder((s) => s.addBlock)
   const picked = useBuilder((s) => s.selectedId)
   const selectedId = picked === HEADER_ID ? null : picked
@@ -154,7 +155,7 @@ function BuilderShell() {
     return () => window.removeEventListener("keydown", onKey)
   }, [undo, redo, selectedId, picked, deleteBlock, duplicateBlock, moveBlock, previewing])
 
-  if (previewing) return <PreviewPane onExit={() => setPreviewing(false)} />
+  if (previewing) return <PreviewPane formId={formId} onExit={() => setPreviewing(false)} />
 
   return (
     <div className="lg:grid lg:h-[calc(100svh-6.5rem)] lg:grid-cols-[15rem_minmax(0,1fr)_18rem]">
