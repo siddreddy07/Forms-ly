@@ -57,6 +57,13 @@
       "when": 1794315977747,
       "tag": "0007_form_filter_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1794316868387,
+      "tag": "0008_form_use_ai",
+      "breakpoints": true
     }
   ]
 }

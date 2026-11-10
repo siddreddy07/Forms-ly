@@ -130,6 +130,9 @@ export const forms = pgTable(
     brandKitId: uuid("brand_kit_id").references(() => brandKits.id, { onDelete: "set null" }),
     // This form's own look (background, colours, font, logo, thank-you page...)
     design: jsonb("design").$type<Record<string, unknown>>().notNull().default({}),
+    // Does the owner want AI features on for this form? Chosen in the Share tab, off by default, and sent with every
+    // publish. Later jobs (Trigger.dev) read it to decide whether to do their AI work.
+    useAi: boolean("use_ai").notNull().default(false),
     // Response limit, close date, and so on (later)
     settings: jsonb("settings").$type<Record<string, unknown>>().notNull().default({}),
     // The fields the Responses table can be filtered by (see libs/filterFields.ts), kept up to date on every publish

@@ -109,6 +109,7 @@ function publishInfo(form: Form) {
     publishedAt: published ? form.publishedAt : null,
     hasChanges: published && form.publishedVersion !== form.version,
     accessCode: form.access === "private" ? form.accessCode : null,
+    useAI: form.useAi,
   }
 }
 
@@ -291,6 +292,7 @@ const patchSchema = z
   .object({
     title: z.string().trim().min(1).max(200),
     access: z.enum(["public", "private"]),
+    useAI: z.boolean(),
     design: designSchema,
   })
   .partial()
@@ -308,7 +310,9 @@ router.patch("/:id", saveLimiter, async (req, res) => {
     return
   }
   // Every switch to private makes a new code (so an old one stops working); going public clears it.
-  const changes: Partial<typeof forms.$inferInsert> = { ...body.data }
+  const { useAI, ...rest } = body.data
+  const changes: Partial<typeof forms.$inferInsert> = { ...rest }
+  if (useAI !== undefined) changes.useAi = useAI
   if (body.data.access === "private" && (form.access !== "private" || !form.accessCode)) changes.accessCode = newAccessCode()
   if (body.data.access === "public") changes.accessCode = null
   const [updated] = await db.update(forms).set(changes).where(eq(forms.id, form.id)).returning()
@@ -316,12 +320,13 @@ router.patch("/:id", saveLimiter, async (req, res) => {
 })
 
 // ---------- POST /forms/:id/publish : make the saved form live ----------
-// Body: { baseVersion }  the saved version the person is looking at.
+// Body: { baseVersion, useAI }  the saved version the person is looking at, and whether AI features are on.
 // 200 { form, publish }  live (the first time it also gets its link; later it is an update)
 // 409 { document, version, updatedAt }  the form changed since, nothing was published
 // Publishing keeps a frozen copy, so editing afterwards does not change the live form until it is published again.
 
-const publishSchema = z.object({ baseVersion: z.number().int().min(1) })
+// useAI is sent with every publish; if an old app leaves it out, the saved choice stays as it was
+const publishSchema = z.object({ baseVersion: z.number().int().min(1), useAI: z.boolean().optional() })
 
 // Publishing writes a frozen copy of the form, so it gets a tighter limit than ordinary saves. The app also pauses its
 // own buttons for a few seconds after each change, so a normal person never gets near this.
@@ -367,7 +372,7 @@ router.post("/:id/publish", publishLimiter, async (req, res) => {
     // Only if nobody saved in between; otherwise nothing changes and we answer with a conflict below
     const [row] = await tx
       .update(forms)
-      .set({ status: "published", publishedVersion: form.version, publishedAt: new Date(), filterFields })
+      .set({ status: "published", publishedVersion: form.version, publishedAt: new Date(), filterFields, useAi: body.data.useAI ?? form.useAi })
       .where(and(eq(forms.id, form.id), eq(forms.version, form.version)))
       .returning()
     return row

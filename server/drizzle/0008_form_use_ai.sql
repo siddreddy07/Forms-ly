@@ -1,0 +1,1 @@
+ALTER TABLE "forms" ADD COLUMN "use_ai" boolean DEFAULT false NOT NULL;
