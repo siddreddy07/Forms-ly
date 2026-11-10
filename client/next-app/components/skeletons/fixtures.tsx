@@ -61,30 +61,103 @@ export function FormCanvasFixture() {
   )
 }
 
-/* The inside of a tab (Design, Share, Analytics, Responses) while its data gets ready:
-   a heading, a short line, and a card with a few rows. */
-export function TabContentFixture() {
-  return (
-    <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6">
-      <div className="grid gap-1.5">
-        <h2 className="font-display text-2xl font-medium tracking-tight">Page title goes here</h2>
-        <p className="text-sm text-muted-foreground">A short line that explains what this page is for.</p>
-      </div>
-      <div className="grid gap-4 rounded-xl border bg-card p-5">
-        <h3 className="text-base font-medium">Section heading</h3>
-        <p className="text-sm text-muted-foreground">A sentence or two of detail sits under every section heading here.</p>
-        <p className="text-sm text-muted-foreground">Another line of supporting text, a little shorter than that.</p>
-        <p className="text-sm text-muted-foreground">One more line so the card has some height to it.</p>
-      </div>
-    </div>
-  )
-}
-
 /* The public form page while it loads: a form on the page background. */
 export function PublicFormFixture() {
   return (
     <div className="mx-auto w-full max-w-xl px-3 py-6 sm:py-10">
       <FormRenderer form={createClientIntake()} />
+    </div>
+  )
+}
+
+/* The Design tab's controls panel (a colour swatch grid and a couple of option rows). The heading and the tab
+   strip above it are plain UI, so they are not part of it. */
+export function DesignPanelFixture() {
+  return (
+    <div className="grid gap-4">
+      <div className="grid gap-2">
+        <h3 className="text-sm font-medium">Page background</h3>
+        <p className="text-sm text-muted-foreground">Pick a colour for the page behind your form.</p>
+      </div>
+      <div className="grid grid-cols-6 gap-2">
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} className="aspect-square rounded-lg bg-muted" />
+        ))}
+      </div>
+      <div className="grid gap-2">
+        <h3 className="text-sm font-medium">Colour strength</h3>
+        <p className="text-sm text-muted-foreground">How strong the colour looks on the page.</p>
+      </div>
+    </div>
+  )
+}
+
+/* Analytics: heading, four number tiles, a wide chart card, then two question cards. */
+export function AnalyticsFixture() {
+  return (
+    <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="grid gap-1.5">
+        <h2 className="font-display text-2xl font-medium tracking-tight">Analytics</h2>
+        <p className="text-sm text-muted-foreground">How your form is doing.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {["Responses", "Last 7 days", "Per day", "Time to complete"].map((l) => (
+          <div key={l} className="rounded-xl border bg-card p-4 sm:p-5">
+            <p className="text-xs text-muted-foreground">{l}</p>
+            <p className="mt-1 font-display text-3xl font-medium tracking-tight">128</p>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-xl border bg-card p-4 sm:p-5">
+        <h3 className="mb-3 text-sm font-medium">Responses over time</h3>
+        <div className="h-56 w-full rounded-lg bg-muted sm:h-64" />
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        {[1, 2].map((n) => (
+          <div key={n} className="grid content-start gap-3 rounded-xl border bg-card p-4 sm:p-5">
+            <h3 className="text-sm font-medium">A question from your form</h3>
+            <p className="text-xs text-muted-foreground">84 of 128 answered</p>
+            <div className="h-32 w-full rounded-lg bg-muted" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/* Share: one card with the link and embed fields. */
+export function ShareFixture() {
+  return (
+    <div className="mx-auto grid max-w-2xl gap-5 rounded-xl border p-6">
+      <div className="grid gap-1 rounded-lg border p-3">
+        <p className="text-sm font-medium">Public</p>
+        <p className="text-sm text-muted-foreground">Anyone with the link can fill it in.</p>
+      </div>
+      <div className="grid gap-1.5">
+        <p className="text-sm font-medium">Link</p>
+        <div className="h-10 w-full rounded-lg bg-muted" />
+      </div>
+      <div className="grid gap-1.5">
+        <p className="text-sm font-medium">Embed on your website</p>
+        <div className="h-20 w-full rounded-lg bg-muted" />
+      </div>
+    </div>
+  )
+}
+
+/* Responses: heading, then a table of rows. */
+export function ResponsesFixture() {
+  return (
+    <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">
+      <div className="grid gap-1.5">
+        <h2 className="font-display text-2xl font-medium tracking-tight">Responses</h2>
+        <p className="text-sm text-muted-foreground">128 responses</p>
+      </div>
+      <div className="grid gap-3 rounded-xl border bg-card p-4">
+        {Array.from({ length: 7 }, (_, i) => (
+          <div key={i} className="h-9 w-full rounded-md bg-muted" />
+        ))}
+      </div>
     </div>
   )
 }

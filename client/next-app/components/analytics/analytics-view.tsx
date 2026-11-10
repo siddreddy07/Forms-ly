@@ -1,6 +1,6 @@
 "use client"
 
-import { TabSkeleton } from "@/components/skeletons/loading"
+import { AnalyticsSkeleton } from "@/components/skeletons/tab-skeletons"
 
 import * as React from "react"
 import { BarChart3Icon } from "lucide-react"
@@ -158,7 +158,7 @@ export function AnalyticsView({ formId }: { formId: string }) {
   const last7 = React.useMemo(() => inRange(all, "7", now).length, [all, now])
   const days = Math.max(series.length, 1)
 
-  if (real === null) return <TabSkeleton />
+  if (real === null) return <AnalyticsSkeleton />
 
   return (
     <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">

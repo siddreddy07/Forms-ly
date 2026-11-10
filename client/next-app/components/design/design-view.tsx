@@ -8,7 +8,7 @@ import { FormFrame } from "@/components/design/form-frame"
 import { SaveStatus } from "@/components/design/save-status"
 import { BrandPanel, ColourPanel, FontPanel, ThanksPanel } from "@/components/design/panels"
 import { FormRenderer } from "@/components/renderer/form-renderer"
-import { TabSkeleton } from "@/components/skeletons/loading"
+import { DesignLoading } from "@/components/design/design-loading"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { readPublishedDoc } from "@/lib/api/mock-meta"
@@ -117,7 +117,7 @@ export function DesignView({ formId }: { formId: string }) {
     [formId, design]
   )
 
-  if (!design || !doc) return <TabSkeleton />
+  if (!design || !doc) return <DesignLoading />
 
   /* Opening the Thanks tab shows the thank-you page in the preview; any other tab shows the form. */
   const onTab = (t: TabId) => setView(t === "thanks" ? "thanks" : "form")

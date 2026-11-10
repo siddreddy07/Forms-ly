@@ -1,6 +1,6 @@
 "use client"
 
-import { TabSkeleton } from "@/components/skeletons/loading"
+import { ResponsesSkeleton } from "@/components/skeletons/tab-skeletons"
 
 import * as React from "react"
 import { DownloadIcon, InboxIcon, SearchIcon } from "lucide-react"
@@ -49,9 +49,7 @@ export function ResponsesView({ formId }: { formId: string }) {
   }, [responses, columns, query])
 
   if (responses === null) {
-    return (
-      <TabSkeleton />
-    )
+    return <ResponsesSkeleton />
   }
 
   if (responses.length === 0) {

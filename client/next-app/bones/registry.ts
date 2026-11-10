@@ -4,7 +4,10 @@ import { registerBones } from 'boneyard-js'
 import { configureBoneyard } from 'boneyard-js/react'
 
 import _dashboard_forms from './dashboard-forms.bones.json'
-import _tab_content from './tab-content.bones.json'
+import _analytics from './analytics.bones.json'
+import _share from './share.bones.json'
+import _responses from './responses.bones.json'
+import _design_panel from './design-panel.bones.json'
 import _public_form from './public-form.bones.json'
 import _form_canvas from './form-canvas.bones.json'
 
@@ -12,7 +15,10 @@ configureBoneyard({"color":"#ececec","darkColor":"#262626","animate":"shimmer","
 
 registerBones({
   "dashboard-forms": _dashboard_forms,
-  "tab-content": _tab_content,
+  "analytics": _analytics,
+  "share": _share,
+  "responses": _responses,
+  "design-panel": _design_panel,
   "public-form": _public_form,
   "form-canvas": _form_canvas,
 })

@@ -2,11 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 
-import { FormCanvasFixture } from "@/components/skeletons/fixtures"
-import { TabSkeleton } from "@/components/skeletons/loading"
-import { Skeleton } from "@/components/skeletons/skeleton"
+import { TabLoading } from "@/components/skeletons/tab-skeletons"
 import { Button } from "@/components/ui/button"
 import { ApiError, useApi } from "@/lib/api/http"
 import type { FormWithDocument } from "@/lib/api/forms"
@@ -132,7 +129,6 @@ export function FormGate({ formId, children }: { formId: string; children: React
    tabs before they have their data. */
 export function FormContent({ children }: { children: React.ReactNode }) {
   const { loaded, error, retry } = useFormState()
-  const pathname = usePathname()
 
   if (loaded) return <>{children}</>
 
@@ -153,13 +149,5 @@ export function FormContent({ children }: { children: React.ReactNode }) {
     )
   }
 
-  /* Build and Design show the form on the page; the other tabs show a general content skeleton. */
-  const showsForm = /\/(build|design)$/.test(pathname)
-  return showsForm ? (
-    <Skeleton name="form-canvas" loading fixture={<FormCanvasFixture />}>
-      <FormCanvasFixture />
-    </Skeleton>
-  ) : (
-    <TabSkeleton />
-  )
+  return <TabLoading />
 }
