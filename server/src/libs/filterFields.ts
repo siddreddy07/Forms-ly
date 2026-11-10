@@ -138,6 +138,28 @@ export async function nextFilterFields(form: Form, publishedDocument: unknown): 
   return updateFilterFields(stored, live)
 }
 
+// Every question a response can answer, for the Responses table headers and the CSV export: the questions of each
+// version that has responses (newest first), then any question the form has now that they miss. Unlike the filter
+// list, long text is included: it cannot be filtered on, but it is still a column.
+export async function responseColumns(form: Form): Promise<Block[]> {
+  const perVersion = await db
+    .selectDistinctOn([responses.formVersion], { fields: responses.fields })
+    .from(responses)
+    .where(eq(responses.formId, form.id))
+    .orderBy(desc(responses.formVersion), desc(responses.submittedAt))
+
+  const out = new Map<string, Block>()
+  const add = (block: Block) => {
+    if (!block || typeof block.id !== "string" || LAYOUT_BLOCKS.has(String(block.type)) || out.has(block.id)) return
+    out.set(block.id, block)
+  }
+  for (const row of perVersion) {
+    for (const block of Array.isArray(row.fields) ? (row.fields as Block[]) : []) add(block)
+  }
+  for (const block of await liveBlocks(form)) add(block)
+  return [...out.values()]
+}
+
 // The fields for one form. A plain lookup of the saved list. A form published before the list existed has it built
 // once from its responses and saved. A form that was never published is worked out from its draft and not saved,
 // because a draft changes all the time and nothing can be filtered yet.

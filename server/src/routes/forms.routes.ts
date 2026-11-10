@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto"
-import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, asc, count, desc, eq, ilike, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm"
 import { Router } from "express"
 import rateLimit from "express-rate-limit"
 import { z } from "zod"
@@ -7,8 +7,11 @@ import { z } from "zod"
 import { db } from "../config/db.js"
 import { makeSlug } from "../libs/slug.js"
 import { buildAnalytics } from "../libs/analytics.js"
-import { formFilterFields, nextFilterFields } from "../libs/filterFields.js"
+import { formFilterFields, nextFilterFields, responseColumns } from "../libs/filterFields.js"
 import type { Block } from "../libs/answers.js"
+import { decodeCursor, encodeCursor } from "../libs/paging.js"
+import { answerText, csvLine } from "../libs/csv.js"
+import { parseResponseFilter, responseFilterWhere, responseSearchWhere } from "../libs/responseFilter.js"
 import { files, formVersions, forms, responses, type Form } from "../schema.js"
 import { deleteStoredFile, ownStorage, platformStorage, privateFileUrl } from "../services/storage.js"
 
@@ -151,23 +154,101 @@ async function findOwnForm(userId: string, id: string) {
   return form
 }
 
-// ---------- GET /forms : all my forms ----------
-// ?archived=true shows only the archived ones, ?archived=all shows everything (each has an "archived" flag)
+// ---------- GET /forms : my forms, one page at a time ----------
+// ?archived=true shows only the archived ones, ?archived=all shows everything (each has an "archived" flag).
+// ?q= searches the names, ?sort=recent|name|responses, ?status=draft|published|closed.
+// ?limit= (1-100, default 24) and ?cursor= (the nextCursor of the page before) page through the list.
+// Answers { forms, total, nextCursor, counts }. total is for the current search and filters; counts is for the two
+// tabs (live and archived) and does not change with the search.
+
+const formsQuery = z.object({
+  archived: z.enum(["true", "all"]).optional(),
+  status: z.enum(["draft", "published", "closed"]).optional(),
+  q: z.string().trim().max(200).optional(),
+  sort: z.enum(["recent", "name", "responses"]).default("recent"),
+  limit: z.coerce.number().int().min(1).max(100).default(24),
+  cursor: z.string().max(400).optional(),
+})
+
+// Keeps % and _ literal in a LIKE pattern
+const likeTerm = (q: string) => `%${q.replace(/[\\%_]/g, (m) => `\\${m}`)}%`
 
 router.get("/", async (req, res) => {
-  const which = req.query.archived // "true", "all", or nothing (live forms only)
+  const query = formsQuery.safeParse(req.query)
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid request", details: z.flattenError(query.error) })
+    return
+  }
+  const { archived, status, q, sort, limit } = query.data
+
+  const cursor = query.data.cursor ? decodeCursor(query.data.cursor, sort) : null
+  if (query.data.cursor && !cursor) {
+    res.status(400).json({ error: "Invalid cursor" })
+    return
+  }
+
+  const userId = req.user!.id
+  const filter = and(
+    eq(forms.ownerId, userId),
+    archived === "all" ? undefined : archived === "true" ? isNotNull(forms.archivedAt) : isNull(forms.archivedAt),
+    status ? eq(forms.status, status) : undefined,
+    q ? ilike(forms.title, likeTerm(q)) : undefined
+  )
+
+  // How many responses each form has. A subquery, so the list itself needs no join or grouping.
+  // "forms"."id" is written out because the list's own columns are not table-qualified in a single-table query, and
+  // the subquery would otherwise read responses.id (which also exists).
+  const responseCount = sql<number>`(select count(*)::int from ${responses} where ${responses.formId} = "forms"."id")`
+
+  // The last row of the previous page. The id breaks ties, so two forms edited in the same second still page correctly.
+  let after: SQL | undefined
+  if (cursor) {
+    if (sort === "name") after = sql`(lower(${forms.title}), ${forms.id}) > (lower(${String(cursor.v)}), ${cursor.id}::uuid)`
+    else if (sort === "responses") after = sql`(${responseCount}, ${forms.id}) < (${Number(cursor.v)}, ${cursor.id}::uuid)`
+    else {
+      const at = new Date(String(cursor.v))
+      after = Number.isNaN(at.getTime()) ? sql`false` : sql`(${forms.updatedAt}, ${forms.id}) < (${at}, ${cursor.id}::uuid)`
+    }
+  }
+
+  const order =
+    sort === "name"
+      ? [asc(sql`lower(${forms.title})`), asc(forms.id)]
+      : sort === "responses"
+        ? [desc(responseCount), desc(forms.id)]
+        : [desc(forms.updatedAt), desc(forms.id)]
 
   const rows = await db
-    .select({ form: forms, responseCount: count(responses.id) })
+    .select({ form: forms, responseCount })
     .from(forms)
-    .leftJoin(responses, eq(responses.formId, forms.id))
-    .where(
-      and(eq(forms.ownerId, req.user!.id), which === "all" ? undefined : which === "true" ? isNotNull(forms.archivedAt) : isNull(forms.archivedAt))
-    )
-    .groupBy(forms.id)
-    .orderBy(desc(forms.updatedAt))
+    .where(and(filter, after))
+    .orderBy(...order)
+    // One extra row tells us whether there is another page, without a second query
+    .limit(limit + 1)
 
-  res.json({ forms: rows.map((r) => summary(r.form, r.responseCount)) })
+  const page = rows.slice(0, limit)
+  const last = page.at(-1)
+  const nextCursor =
+    rows.length > limit && last
+      ? encodeCursor({
+          s: sort,
+          v: sort === "recent" ? last.form.updatedAt.toISOString() : sort === "name" ? last.form.title : last.responseCount,
+          id: last.form.id,
+        })
+      : null
+
+  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(forms).where(filter)
+
+  // The two tab counts. They ignore the search and status on purpose, so the tabs always show the real totals.
+  const [counts] = await db
+    .select({
+      all: sql<number>`count(*) filter (where ${forms.archivedAt} is null)`.mapWith(Number),
+      archived: sql<number>`count(*) filter (where ${forms.archivedAt} is not null)`.mapWith(Number),
+    })
+    .from(forms)
+    .where(eq(forms.ownerId, userId))
+
+  res.json({ forms: page.map((r) => summary(r.form, r.responseCount)), total, nextCursor, counts: counts ?? { all: 0, archived: 0 } })
 })
 
 // ---------- POST /forms : create a form ----------
@@ -454,18 +535,57 @@ router.delete("/:id", async (req, res) => {
   res.status(204).end()
 })
 
-// ---------- GET /forms/:id/responses : everything people submitted, newest first ----------
-// Used by the Responses tab. Capped so one huge form cannot flood the browser.
+// ---------- GET /forms/:id/responses : what people submitted, newest first, one page at a time ----------
+// ?limit= (1-200, default 50), ?cursor= (the nextCursor of the page before), ?q= (a word in any answer),
+// ?filter= (the filter panel's filter, as JSON; see libs/responseFilter.ts).
+// The filter, search and date range are applied in the database, so total and the pages always agree.
 // A file answer comes with a link that stops working after an hour (the files are private).
+// Answers { items, total, nextCursor, allTotal, columns, publishedAt, createdAt, filterFields }.
 
-const RESPONSE_CAP = 5000
+const responsesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  cursor: z.string().max(400).optional(),
+  q: z.string().trim().max(200).optional(),
+  filter: z.string().max(5000).optional(),
+})
+
+// The pieces every responses read shares: the form's questions and the rows the filter and search keep.
+async function responsesScope(form: Form, q: string | undefined, filterRaw: unknown) {
+  const filter = parseResponseFilter(filterRaw)
+  if (filter === null) return { ok: false as const }
+  const filterFields = await formFilterFields(form)
+  const columns = await responseColumns(form)
+  const where = and(eq(responses.formId, form.id), responseSearchWhere(q ?? "", columns), filter ? responseFilterWhere(filter, filterFields) : undefined)
+  return { ok: true as const, filterFields, columns, where }
+}
 
 router.get("/:id/responses", async (req, res) => {
-  const form = await findOwnForm(req.user!.id, req.params.id)
+  const form = await findOwnForm(req.user!.id, String(req.params.id))
   if (!form) {
     res.status(404).json({ error: "Form not found" })
     return
   }
+  const query = responsesQuery.safeParse(req.query)
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid request", details: z.flattenError(query.error) })
+    return
+  }
+  const { limit, q } = query.data
+  const scope = await responsesScope(form, q, query.data.filter)
+  if (!scope.ok) {
+    res.status(400).json({ error: "Invalid filter" })
+    return
+  }
+
+  const cursor = query.data.cursor ? decodeCursor(query.data.cursor, "responses") : null
+  if (query.data.cursor && !cursor) {
+    res.status(400).json({ error: "Invalid cursor" })
+    return
+  }
+  const after = cursor
+    ? sql`(${responses.submittedAt}, ${responses.id}) < (${new Date(String(cursor.v))}, ${cursor.id}::uuid)`
+    : undefined
+
   const rows = await db
     .select({
       id: responses.id,
@@ -477,18 +597,25 @@ router.get("/:id/responses", async (req, res) => {
       submittedAt: responses.submittedAt,
     })
     .from(responses)
-    .where(eq(responses.formId, form.id))
-    .orderBy(desc(responses.submittedAt))
-    .limit(RESPONSE_CAP)
-  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
+    .where(and(scope.where, after))
+    .orderBy(desc(responses.submittedAt), desc(responses.id))
+    // One extra row tells us whether there is another page
+    .limit(limit + 1)
+
+  const page = rows.slice(0, limit)
+  const last = page.at(-1)
+  const nextCursor = rows.length > limit && last ? encodeCursor({ s: "responses", v: last.submittedAt.toISOString(), id: last.id }) : null
+
+  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(scope.where)
+  const [{ total: allTotal } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
 
   // Links for the files, keyed by the file's id at the storage
   const links = new Map<string, string>()
-  if (rows.length > 0) {
+  if (page.length > 0) {
     const stored = await db
       .select()
       .from(files)
-      .where(inArray(files.responseId, rows.map((r) => r.id)))
+      .where(inArray(files.responseId, page.map((r) => r.id)))
     if (stored.length > 0) {
       const platform = platformStorage()
       const own = stored.some((f) => !f.onPlatform) ? await ownStorage(form.ownerId) : null
@@ -499,7 +626,7 @@ router.get("/:id/responses", async (req, res) => {
     }
   }
 
-  const items = rows.map((r) => {
+  const items = page.map((r) => {
     const answers: Record<string, unknown> = { ...r.answers }
     for (const [key, value] of Object.entries(answers)) {
       if (Array.isArray(value) && value.some((v) => v && typeof v === "object" && "fileId" in v)) {
@@ -512,8 +639,94 @@ router.get("/:id/responses", async (req, res) => {
     return { ...r, answers, formId: form.id }
   })
 
-  // The fields the filter panel (and later the AI) can use: current questions plus ones older responses still answer
-  res.json({ items, total, publishedAt: form.publishedAt, createdAt: form.createdAt, filterFields: await formFilterFields(form) })
+  res.json({
+    items,
+    total,
+    allTotal,
+    nextCursor,
+    columns: scope.columns,
+    publishedAt: form.publishedAt,
+    createdAt: form.createdAt,
+    filterFields: scope.filterFields,
+  })
+})
+
+// ---------- GET /forms/:id/responses/export.csv : every response, ignoring pages ----------
+// Same ?q= and ?filter= as the table, so the file holds exactly what the table is showing. Streamed in batches so a
+// form with many responses never has to fit in memory.
+
+const EXPORT_BATCH = 1000
+
+router.get("/:id/responses/export.csv", async (req, res) => {
+  const form = await findOwnForm(req.user!.id, String(req.params.id))
+  if (!form) {
+    res.status(404).json({ error: "Form not found" })
+    return
+  }
+  const query = z
+    .object({ q: z.string().trim().max(200).optional(), filter: z.string().max(5000).optional() })
+    .safeParse(req.query)
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid request" })
+    return
+  }
+  const scope = await responsesScope(form, query.data.q, query.data.filter)
+  if (!scope.ok) {
+    res.status(400).json({ error: "Invalid filter" })
+    return
+  }
+
+  const name = (form.slug ?? form.id).replace(/[^a-z0-9_-]/gi, "-")
+  res.setHeader("Content-Type", "text/csv; charset=utf-8")
+  res.setHeader("Content-Disposition", `attachment; filename="responses-${name}.csv"`)
+  res.setHeader("Cache-Control", "no-store")
+
+  // Waits when the browser is reading slower than we write, so a big export does not pile up in memory
+  const write = (chunk: string) =>
+    new Promise<void>((resolve, reject) => {
+      if (res.write(chunk)) return resolve()
+      const onDrain = () => {
+        res.off("error", onError)
+        resolve()
+      }
+      const onError = (error: Error) => {
+        res.off("drain", onDrain)
+        reject(error)
+      }
+      res.once("drain", onDrain)
+      res.once("error", onError)
+    })
+
+  try {
+    await write(`\uFEFF${csvLine(["Submitted", ...scope.columns.map((c) => c.label || "Untitled question")])}`)
+
+    // The rows after the last batch. Typed on purpose: the loop below feeds it back in.
+    const afterCursor = (at: { v: string; id: string } | null): SQL | undefined =>
+      at ? sql`(${responses.submittedAt}, ${responses.id}) < (${new Date(at.v)}, ${at.id}::uuid)` : undefined
+
+    let cursor: { v: string; id: string } | null = null
+    for (;;) {
+      const after = afterCursor(cursor)
+      const rows = await db
+        .select({ id: responses.id, answers: responses.answers, submittedAt: responses.submittedAt })
+        .from(responses)
+        .where(and(scope.where, after))
+        .orderBy(desc(responses.submittedAt), desc(responses.id))
+        .limit(EXPORT_BATCH)
+
+      for (const row of rows) {
+        await write(csvLine([row.submittedAt.toISOString(), ...scope.columns.map((c) => answerText(c, row.answers[c.id]))]))
+      }
+      if (rows.length < EXPORT_BATCH) break
+      const last = rows[rows.length - 1]!
+      cursor = { v: last.submittedAt.toISOString(), id: last.id }
+    }
+    res.end()
+  } catch (error) {
+    // The visitor closed the tab, or the database failed part way. Nothing more can be sent.
+    console.error(error)
+    res.end()
+  }
 })
 
 // ---------- GET /forms/:id/analytics?range=7|30|all&tz=<minutes> : numbers only ----------
