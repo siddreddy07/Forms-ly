@@ -5,14 +5,14 @@ import { ClockIcon } from "lucide-react"
 import { Highlighter } from "@/components/ui/highlighter"
 import { closingLabel } from "@/lib/time"
 
-/* The line under the public form's header: when the form stops taking answers.
+/* The line below the public form's card and badge: when the form stops taking answers.
    The date part is highlighted, so it is easy to spot without reading the whole line. */
 export function FormClosingNotice({ closesAt }: { closesAt: string }) {
   const label = closingLabel(closesAt)
   if (!label) return null
 
   return (
-    <p className="mb-6 flex items-center gap-2 text-sm text-muted-foreground">
+    <p className="mt-5 flex items-center justify-center gap-2 text-sm text-muted-foreground">
       <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
       <span>
         Closes{" "}

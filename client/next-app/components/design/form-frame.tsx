@@ -12,6 +12,7 @@ export function FormFrame({
   design: given,
   title,
   inert,
+  footer,
   className,
   children,
 }: {
@@ -22,6 +23,8 @@ export function FormFrame({
   title?: string
   /* Makes the card read-only (used in the Design tab). */
   inert?: boolean
+  /* Extra line below the card and the badge, such as when the form stops taking answers. */
+  footer?: React.ReactNode
   className?: string
   children: React.ReactNode
 }) {
@@ -41,6 +44,7 @@ export function FormFrame({
           <MadeWith />
         </div>
       )}
+      {footer}
     </div>
   )
 }

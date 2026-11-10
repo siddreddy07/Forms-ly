@@ -5,6 +5,7 @@ import * as React from "react"
 import { FormFrame } from "@/components/design/form-frame"
 import { ThemedBackground } from "@/components/design/themed-background"
 import { ClosedScene } from "@/components/not-found/closed-scene"
+import { FormClosingNotice } from "@/components/forms/form-closing-notice"
 import { PrivateGate } from "@/components/forms/private-gate"
 import { PublicForm } from "@/components/forms/public-form"
 import type { PublicFormResponse } from "@/lib/api/forms"
@@ -40,8 +41,12 @@ export function PublicFormView({ slug, data: first }: { slug: string; data: Publ
 
   return (
     <ThemedBackground as="main" design={design} className="min-h-svh px-4 py-8 sm:py-16">
-      <FormFrame design={design} title={doc && !doc.header?.title ? live.title : undefined}>
-        {doc && <PublicForm slug={slug} doc={doc} design={design} version={live.version} code={code} closesAt={live.closesAt} />}
+      <FormFrame
+        design={design}
+        title={doc && !doc.header?.title ? live.title : undefined}
+        footer={live.closesAt ? <FormClosingNotice closesAt={live.closesAt} /> : null}
+      >
+        {doc && <PublicForm slug={slug} doc={doc} design={design} version={live.version} code={code} />}
       </FormFrame>
     </ThemedBackground>
   )
