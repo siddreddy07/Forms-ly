@@ -1,8 +1,10 @@
 import Link from "next/link"
 
+import { MadeWith } from "@/components/brand/made-with"
+import { WarmGlow } from "@/components/ui/warm-glow"
 import { authLinks, brand } from "@/lib/brand"
 
-/* The page a visitor sees when a form exists but can't be filled in. Same dark stage as the 404 page; the form
+/* The page a visitor sees when a form exists but can't be filled in. Same plain background as the 404 page; the form
    itself sits there with its questions blacked out, and a padlock (or a clock, if it just isn't open yet) on top. */
 
 type Variant = "private" | "unpublished"
@@ -74,17 +76,7 @@ export function ClosedScene({ variant, children }: { variant: Variant; children?
   const { title, text } = copy[variant]
   return (
     <div className="relative isolate min-h-svh overflow-hidden bg-background text-foreground">
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, color-mix(in oklab, currentColor 8%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, currentColor 8%, transparent) 1px, transparent 1px)",
-          backgroundSize: "clamp(120px, 16vw, 240px) clamp(120px, 16vw, 240px)",
-          backgroundPosition: "center",
-        }}
-      />
-      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_70%_55%,rgba(255,176,0,0.10),transparent_60%)]" />
+      <WarmGlow />
 
       <div className="mx-auto flex min-h-svh max-w-5xl flex-col px-5 py-6 sm:px-8">
         <header>
@@ -120,7 +112,9 @@ export function ClosedScene({ variant, children }: { variant: Variant; children?
           </div>
         </main>
 
-        <footer className="pb-2 text-sm text-muted-foreground">Made with {brand.name}</footer>
+        <footer className="flex justify-center pb-2">
+          <MadeWith />
+        </footer>
       </div>
     </div>
   )

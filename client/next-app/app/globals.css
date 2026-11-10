@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -67,6 +67,8 @@
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
     --ring: oklch(0.145 0 0);
+    /* A warm yellow-orange, used only as a faint touch of colour. */
+    --warm: oklch(0.82 0.15 72);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -102,6 +104,7 @@
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.985 0 0);
+    --warm: oklch(0.76 0.15 65);
     --chart-1: oklch(0.87 0 0);
     --chart-2: oklch(0.556 0 0);
     --chart-3: oklch(0.439 0 0);
@@ -308,4 +311,37 @@
 .nf-redact { animation: nf-redact 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--d, 0ms) + 250ms); }
 .nf-shackle { animation: nf-shackle 1.4s ease-out 0.9s both; }
 .nf-hand { transform-origin: 60px 60px; animation: nf-hand 24s linear infinite; }
+
+/* ---------- Warm touches (components/ui/warm-glow.tsx) ---------- */
+/* A haze of warm light along the top edge, fading out downward. No hard shapes. */
+.warm-sky {
+  background:
+    radial-gradient(ellipse 90% 100% at 50% -10%, color-mix(in oklab, var(--warm) 50%, transparent), transparent 75%),
+    linear-gradient(to bottom, color-mix(in oklab, var(--warm) 18%, transparent), transparent 90%);
+  /* The lower edge is concave, like the inside of a bowl: it curves up in the middle and hangs lower at the sides. */
+  -webkit-mask-image: radial-gradient(ellipse 80% 100% at 50% 140%, transparent 58%, #000 84%);
+  mask-image: radial-gradient(ellipse 80% 100% at 50% 140%, transparent 58%, #000 84%);
+  opacity: 0.55;
+}
+.dark .warm-sky { opacity: 0.4; }
+.warm-sky-hero { opacity: 0.9; }
+.dark .warm-sky-hero { opacity: 0.6; }
+/* On the home page it opens upward from the bottom of the header, once, as the page appears. */
+@keyframes warm-open {
+  from { clip-path: inset(100% 0 0 0); opacity: 0; }
+  to { clip-path: inset(0 0 0 0); }
+}
+.warm-sky-hero { animation: warm-open 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+::selection { background: color-mix(in oklab, var(--warm) 40%, transparent); }
+@media (prefers-reduced-motion: reduce) {
+  .warm-sky-hero { animation: none; }
+}
+
+/* Home page headlines: the same display font as the header and the big headline. */
+.marketing-serif {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
 

@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
+import { WarmGlow } from "@/components/ui/warm-glow"
 import { authLinks, brand } from "@/lib/brand"
 import { cn } from "@/lib/utils"
 
@@ -111,22 +112,7 @@ export function NotFoundScene({ title, text }: { title: string; text: string }) 
 
   return (
     <div className="relative isolate min-h-svh overflow-hidden bg-background text-foreground">
-      {/* The stage: a hairline grid and two diagonals, like a level editor. */}
-      <div
-        aria-hidden="true"
-        className="absolute inset-0 -z-10 opacity-100"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, color-mix(in oklab, currentColor 8%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in oklab, currentColor 8%, transparent) 1px, transparent 1px)",
-          backgroundSize: "clamp(120px, 16vw, 240px) clamp(120px, 16vw, 240px)",
-          backgroundPosition: "center",
-        }}
-      />
-      <svg aria-hidden="true" className="absolute inset-0 -z-10 size-full" preserveAspectRatio="none" viewBox="0 0 100 100">
-        <line x1="0" y1="0" x2="100" y2="100" stroke="currentColor" strokeOpacity="0.07" strokeWidth="0.15" vectorEffect="non-scaling-stroke" />
-        <line x1="100" y1="0" x2="0" y2="100" stroke="currentColor" strokeOpacity="0.07" strokeWidth="0.15" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_70%_60%,rgba(63,123,255,0.10),transparent_60%)]" />
+      <WarmGlow />
 
       <div className="mx-auto flex min-h-svh max-w-6xl flex-col px-5 py-6 sm:px-8">
         <header>
