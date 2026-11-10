@@ -50,11 +50,17 @@ function NewFormDialog({
 
   const selected = templates.find((t) => t.id === templateId)!
 
+  const trimmed = title.trim()
+  const [touched, setTouched] = React.useState(false)
+
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    onCreate({ title: title.trim() || selected.name, templateId })
+    setTouched(true)
+    if (!trimmed) return
+    onCreate({ title: trimmed, templateId })
     setOpen(false)
     setTitle("")
+    setTouched(false)
     setTemplateId("blank")
   }
 
@@ -86,9 +92,18 @@ function NewFormDialog({
                 id="new-form-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder={selected.name}
+                placeholder={`For example, ${selected.name}`}
+                maxLength={200}
+                required
+                aria-invalid={touched && !trimmed}
+                aria-describedby="new-form-title-error"
                 className="h-10 rounded-lg"
               />
+              {touched && !trimmed && (
+                <p id="new-form-title-error" role="alert" className="text-xs text-destructive">
+                  Give your form a name to continue.
+                </p>
+              )}
             </div>
 
             <fieldset>
@@ -129,7 +144,7 @@ function NewFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="submit" size="lg" >Create form</Button>
+            <Button type="submit" size="lg" disabled={!trimmed && touched}>Create form</Button>
           </DialogFooter>
         </form>
       </DialogContent>

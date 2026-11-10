@@ -82,6 +82,12 @@ function DashboardView() {
   }
 
   const actions: FormActions = {
+    /* Throws when it fails, so the rename dialog can show the error and stay open. */
+    async onRename(id, name) {
+      const { form } = await api<FormResponse>(`/forms/${id}`, { method: "PATCH", body: { title: name } })
+      replace(form)
+      toast.success("Form renamed")
+    },
     async onDuplicate(id) {
       try {
         const { form } = await api<FormResponse>(`/forms/${id}/duplicate`, { method: "POST" })

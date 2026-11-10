@@ -1,5 +1,7 @@
 ﻿"use client"
 
+import * as React from "react"
+
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -7,6 +9,7 @@ import {
   CopyIcon,
   FolderIcon,
   MoreHorizontalIcon,
+  PencilIcon,
   Trash2Icon,
 } from "lucide-react"
 
@@ -20,9 +23,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { RenameFormDialog } from "@/components/forms/rename-form-dialog"
 import type { FormSummary } from "@/lib/api/types"
 
 export type FormActions = {
+  onRename: (id: string, name: string) => Promise<void>
   onDuplicate: (id: string) => void
   onArchive: (id: string) => void
   onDelete: (id: string) => void
@@ -38,7 +43,9 @@ function FormActionsMenu({
   folders: string[]
   actions: FormActions
 }) {
+  const [renaming, setRenaming] = React.useState(false)
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Actions for ${form.title}`}
@@ -47,6 +54,9 @@ function FormActionsMenu({
         <MoreHorizontalIcon className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
+        <DropdownMenuItem onClick={() => setRenaming(true)}>
+          <PencilIcon /> Rename
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.onDuplicate(form.id)}>
           <CopyIcon /> Duplicate
         </DropdownMenuItem>
@@ -77,6 +87,8 @@ function FormActionsMenu({
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    <RenameFormDialog open={renaming} onOpenChange={setRenaming} currentName={form.title} onSave={(name) => actions.onRename(form.id, name)} />
+    </>
   )
 }
 

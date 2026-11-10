@@ -14,6 +14,8 @@ type Loaded = { form: FormSummary; doc: FormDocument; version: number; updatedAt
 
 type Gate = Loaded & {
   /* Call after a successful save so the other tabs and the title show the newest copy. */
+  /* Call after a rename so the header and the other tabs show the new name. */
+  setTitle: (title: string) => void
   commit: (next: { doc: FormDocument; version: number; updatedAt: string; title?: string }) => void
 }
 
@@ -62,7 +64,11 @@ export function FormGate({ formId, children }: { formId: string; children: React
     [formId]
   )
 
-  const value = React.useMemo(() => (loaded ? { ...loaded, commit } : null), [loaded, commit])
+  const setTitle = React.useCallback((title: string) => {
+    setLoaded((prev) => (prev ? { ...prev, form: { ...prev.form, title } } : prev))
+  }, [])
+
+  const value = React.useMemo(() => (loaded ? { ...loaded, commit, setTitle } : null), [loaded, commit, setTitle])
 
   if (error) {
     return (
