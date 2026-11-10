@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { motion, MotionConfig } from "motion/react"
+import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
 
 import { Logo, LogoMark } from "@/components/brand/logo"
 import { buttonVariants } from "@/components/ui/button"
@@ -24,7 +25,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { authLinks, brand, navLinks } from "@/lib/brand"
+import { brand, navLinks } from "@/lib/brand"
 import { cn } from "@/lib/utils"
 
 const ease = [0.22, 1, 0.36, 1] as const
@@ -107,12 +108,22 @@ function Navbar() {
             ))}
           </ul>
           <div className="flex items-center gap-1">
-            <Link href={authLinks.signIn} className={linkClass}>
-              Sign in
-            </Link>
-            <Link href={authLinks.signUp} className={buttonVariants({ size: "default", shape: "pill" })}>
-              Start for free
-            </Link>
+            <Show when="signed-out">
+              <SignInButton mode="modal">
+                <button type="button" className={linkClass}>Sign in</button>
+              </SignInButton>
+              <SignUpButton mode="modal">
+                <button type="button" className={buttonVariants({ size: "default", shape: "pill" })}>
+                  Start for free
+                </button>
+              </SignUpButton>
+            </Show>
+            <Show when="signed-in">
+              <Link href="/dashboard" className={buttonVariants({ size: "default", shape: "pill" })}>
+                Dashboard
+              </Link>
+              <UserButton />
+            </Show>
           </div>
         </motion.nav>
 
@@ -192,28 +203,29 @@ function Navbar() {
                 </ul>
 
                 <div className="mt-2 grid grid-cols-2 gap-2 border-t p-1.5 pt-2.5">
-                  <SheetClose
-                    nativeButton={false}
-                    render={
-                      <Link
-                        href={authLinks.signIn}
-                        className={buttonVariants({ size: "lg", variant: "outline" })}
-                      />
-                    }
-                  >
-                    Sign in
-                  </SheetClose>
-                  <SheetClose
-                    nativeButton={false}
-                    render={
-                      <Link
-                        href={authLinks.signUp}
-                        className={buttonVariants({ size: "lg" })}
-                      />
-                    }
-                  >
-                    Start for free
-                  </SheetClose>
+                  <Show when="signed-out">
+                    <SignInButton mode="modal">
+                      <button type="button" className={buttonVariants({ size: "lg", variant: "outline" })}>
+                        Sign in
+                      </button>
+                    </SignInButton>
+                    <SignUpButton mode="modal">
+                      <button type="button" className={buttonVariants({ size: "lg" })}>
+                        Start for free
+                      </button>
+                    </SignUpButton>
+                  </Show>
+                  <Show when="signed-in">
+                    <SheetClose
+                      nativeButton={false}
+                      render={<Link href="/dashboard" className={buttonVariants({ size: "lg" })} />}
+                    >
+                      Dashboard
+                    </SheetClose>
+                    <div className="flex items-center justify-center">
+                      <UserButton showName />
+                    </div>
+                  </Show>
                 </div>
               </SheetContent>
             </Sheet>          </nav>

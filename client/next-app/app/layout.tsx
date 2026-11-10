@@ -1,7 +1,9 @@
-﻿import { Funnel_Display, Geist_Mono, Manrope } from "next/font/google"
+﻿import { ClerkProvider } from "@clerk/nextjs"
+import { Funnel_Display, Geist_Mono, Manrope } from "next/font/google"
 import type { Metadata } from "next"
 
 import "./globals.css"
+import { SyncUser } from "@/components/auth/sync-user"
 import { ThemeProvider } from "@/components/theme-provider"
 import { brand } from "@/lib/brand"
 import { cn } from "@/lib/utils"
@@ -35,7 +37,10 @@ export default function RootLayout({
       )}
     >
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ClerkProvider>
+          <SyncUser />
+          <ThemeProvider>{children}</ThemeProvider>
+        </ClerkProvider>
       </body>
     </html>
   )

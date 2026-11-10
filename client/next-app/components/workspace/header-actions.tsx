@@ -1,62 +1,45 @@
 "use client"
 
-import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { toast } from "sonner"
+import { EyeIcon, FileTextIcon, GlobeIcon, LockIcon } from "lucide-react"
 
 import { useFormMeta } from "@/components/forms/use-form-meta"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
-import { publishForm } from "@/lib/api/mock-meta"
-import { getFormDocument } from "@/lib/api/mock-schemas"
-import { readServerRecord } from "@/lib/api/mock-server"
-import { readDraft } from "@/lib/builder/draft"
-import { createEmptyForm } from "@/lib/schema"
 import type { FormStatus } from "@/lib/api/types"
 
 export function StatusBadge({ formId, fallback }: { formId: string; fallback: FormStatus }) {
   const meta = useFormMeta(formId)
   const label = !meta ? (fallback === "published" ? "Published" : "Draft") : !meta.published ? "Draft" : meta.access === "private" ? "Private" : "Published"
+  const Icon = label === "Draft" ? FileTextIcon : label === "Private" ? LockIcon : GlobeIcon
+  /* On phones only the icon shows (the word is still there for screen readers). */
   return (
-    <Badge variant="secondary" className="shrink-0 rounded-md!">
-      {label}
+    <Badge variant="secondary" title={label} className="shrink-0 rounded-md! max-sm:px-1.5">
+      <Icon className="size-3.5 sm:hidden" aria-hidden="true" />
+      <span className="max-sm:sr-only">{label}</span>
     </Badge>
   )
 }
 
 export function HeaderActions({ formId }: { formId: string }) {
-  const meta = useFormMeta(formId)
-  const path = usePathname()
-  const router = useRouter()
-  const onBuild = path.endsWith("/build")
+  const previewHref = `/f/${formId}?preview=1`
 
-  function publish() {
-    if (onBuild) {
-      window.dispatchEvent(new Event("builder:publish"))
-      return
-    }
-    const fallback = getFormDocument(formId) ?? createEmptyForm()
-    if (readDraft(formId)?.dirty) {
-      toast.message("You have unsaved changes. Save them in the builder first.")
-      router.push(`/forms/${formId}/build`)
-      return
-    }
-    const rec = readServerRecord(formId, fallback)
-    publishForm(formId, rec.doc, rec.version)
-    toast.success("Published. Your form is live.")
-  }
-
+  /* Publishing lives on the Share tab, so the header only has Preview. */
   return (
-    <div className="ml-auto hidden items-center gap-2 lg:flex">
-      <Link href={`/f/${formId}?preview=1`} target="_blank" rel="noreferrer" className={buttonVariants({ variant: "outline" })}>
+    <div className="ml-auto flex shrink-0 items-center">
+      <Link
+        href={previewHref}
+        target="_blank"
+        rel="noreferrer"
+        aria-label="Preview"
+        title="Preview"
+        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring lg:hidden"
+      >
+        <EyeIcon className="size-4" />
+      </Link>
+      <Link href={previewHref} target="_blank" rel="noreferrer" className={`${buttonVariants({ variant: "outline" })} max-lg:hidden`}>
         Preview
       </Link>
-      {!onBuild && (
-        <button type="button" onClick={publish} disabled={!meta || meta.published} className={buttonVariants()}>
-          {meta?.published ? "Published" : "Save & publish"}
-        </button>
-      )}
     </div>
   )
 }

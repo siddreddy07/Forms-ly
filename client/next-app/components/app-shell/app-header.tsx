@@ -1,4 +1,5 @@
 ﻿import Link from "next/link"
+import { UserButton } from "@clerk/nextjs"
 
 import { Logo } from "@/components/brand/logo"
 
@@ -9,12 +10,7 @@ function AppHeader() {
         <Logo />
         <nav aria-label="Account" className="flex items-center gap-4 text-sm">
           <Link href="/dashboard" className="font-medium">Forms</Link>
-          <span
-            aria-label="Signed in as Mara Okafor"
-            className="inline-flex size-8 items-center justify-center rounded-full bg-foreground text-xs font-medium text-background"
-          >
-            MO
-          </span>
+          <UserButton />
         </nav>
       </div>
     </header>

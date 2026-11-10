@@ -1,13 +1,12 @@
 ﻿"use client"
 
-import Link from "next/link"
+import { SignUpButton } from "@clerk/nextjs"
 import { ArrowRightIcon } from "lucide-react"
 import { motion, MotionConfig, useScroll, useTransform } from "motion/react"
 import * as React from "react"
 
 import { buttonVariants } from "@/components/ui/button"
 import { WindowFrame } from "@/components/marketing/window-frame"
-import { authLinks } from "@/lib/brand"
 
 const ease = [0.22, 1, 0.36, 1] as const
 
@@ -68,8 +67,9 @@ function Hero() {
             transition={{ duration: 0.8, ease, delay: 0.78 }}
             className="mt-10 flex justify-center"
           >
-            <Link
-              href={authLinks.signUp}
+            <SignUpButton mode="modal">
+            <button
+              type="button"
               className={`${buttonVariants({ size: "lg", shape: "pill" })} group/cta h-12 px-6 text-base`}
             >
               Start for free
@@ -77,7 +77,8 @@ function Hero() {
                 data-icon="inline-end"
                 className="transition-transform duration-300 group-hover/cta:translate-x-1"
               />
-            </Link>
+            </button>
+            </SignUpButton>
           </motion.div>
         </div>
 
