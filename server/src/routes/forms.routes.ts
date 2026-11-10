@@ -1,5 +1,6 @@
 import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { Router } from "express"
+import rateLimit from "express-rate-limit"
 import { z } from "zod"
 
 import { db } from "../config/db.js"
@@ -115,7 +116,20 @@ const saveSchema = z.object({
   baseVersion: z.number().int().min(1),
 })
 
-router.put("/:id", async (req, res) => {
+// The browser saves automatically while someone edits (about once every few seconds at most).
+// This limit stops a buggy or abusive client from hammering the database. It counts per user.
+const saveLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: "draft-8", // sends RateLimit headers and Retry-After
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user!.id,
+  handler: (_req, res) => {
+    res.status(429).json({ error: "Too many saves. Slow down a little." })
+  },
+})
+
+router.put("/:id", saveLimiter, async (req, res) => {
   const body = saveSchema.safeParse(req.body)
   if (!body.success) {
     res.status(400).json({ error: "Invalid form", details: z.flattenError(body.error) })
@@ -123,18 +137,27 @@ router.put("/:id", async (req, res) => {
   }
 
   const userId = req.user!.id
-  const id = req.params.id
+  const id = String(req.params.id)
+  const title = titleFrom(body.data.document)
 
-  // Only saves when the version still matches. Doing it in one query means two saves can't both win.
+  // One query that only writes when (1) the version still matches, so two saves can't both win, and
+  // (2) the content really changed, so saving the same thing again costs no database write.
   const [saved] = idSchema.safeParse(id).success
     ? await db
         .update(forms)
         .set({
           draft: body.data.document,
           version: sql`${forms.version} + 1`,
-          ...(titleFrom(body.data.document) ? { title: titleFrom(body.data.document)! } : {}),
+          ...(title ? { title } : {}),
         })
-        .where(and(eq(forms.id, id), eq(forms.ownerId, userId), eq(forms.version, body.data.baseVersion)))
+        .where(
+          and(
+            eq(forms.id, id),
+            eq(forms.ownerId, userId),
+            eq(forms.version, body.data.baseVersion),
+            sql`${forms.draft} is distinct from ${JSON.stringify(body.data.document)}::jsonb`
+          )
+        )
         .returning()
     : []
 
@@ -143,10 +166,15 @@ router.put("/:id", async (req, res) => {
     return
   }
 
-  // Not saved: the form is missing, or the version was old
+  // Nothing was written: the form is missing, the version was old, or nothing changed
   const current = await findOwnForm(userId, id)
   if (!current) {
     res.status(404).json({ error: "Form not found" })
+    return
+  }
+  if (current.version === body.data.baseVersion) {
+    // Same version and same content: already saved, just say so
+    res.json({ version: current.version, updatedAt: current.updatedAt, title: current.title })
     return
   }
   res.status(409).json({ document: current.draft, version: current.version, updatedAt: current.updatedAt })
