@@ -1,5 +1,7 @@
 "use client"
 
+import { PublicFormSkeleton } from "@/components/skeletons/loading"
+
 import * as React from "react"
 
 import { useFormDesign } from "@/components/design/use-form-design"
@@ -29,7 +31,7 @@ export function PublicForm({ formId, sample, preview }: { formId: string; sample
   React.useEffect(() => {
     openedAt.current = Date.now()
   }, [])
-  if (!meta) return <div className="h-48 animate-pulse rounded-lg bg-muted/40" />
+  if (!meta) return <PublicFormSkeleton />
 
   if (preview) {
     return (

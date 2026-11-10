@@ -2,6 +2,7 @@
 
 import * as React from "react"
 
+import { LoaderCircle } from "@/components/animate-ui/icons/loader-circle"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -80,6 +81,7 @@ export function RenameFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={!canSave}>
+              {busy && <LoaderCircle animate size={16} className="size-4" aria-hidden="true" />}
               {busy ? "Saving" : "Save"}
             </Button>
           </DialogFooter>

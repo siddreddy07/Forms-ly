@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
-import { AlertCircleIcon, CheckIcon, Loader2Icon } from "lucide-react"
+import { AlertCircleIcon } from "lucide-react"
+import { LoaderCircle } from "@/components/animate-ui/icons/loader-circle"
+import { Check } from "@/components/animate-ui/icons/check"
 
 import { getSaveState, subscribeSaveState } from "@/lib/api/mock-design"
 import { cn } from "@/lib/utils"
@@ -27,8 +29,8 @@ export function SaveStatus({ formId, className }: { formId: string; className?: 
 
   return (
     <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", state.status === "error" && "text-destructive", className)}>
-      {state.status === "saving" && <Loader2Icon className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
-      {state.status === "saved" && <CheckIcon className="size-3.5 shrink-0" aria-hidden="true" />}
+      {state.status === "saving" && <LoaderCircle animate size={14} className="size-3.5 shrink-0" aria-hidden="true" />}
+      {state.status === "saved" && <Check animate size={14} className="size-3.5 shrink-0" aria-hidden="true" />}
       {state.status === "error" && <AlertCircleIcon className="size-3.5 shrink-0" aria-hidden="true" />}
       <span className="max-sm:sr-only">{label}</span>
     </p>

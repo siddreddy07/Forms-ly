@@ -1,8 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, CircleDotIcon, CloudOffIcon, CopyIcon, EyeIcon, HardDriveIcon, Loader2Icon, PlusIcon, Redo2Icon, Trash2Icon, Undo2Icon } from "lucide-react"
+import { CheckIcon, CircleDotIcon, CloudOffIcon, CopyIcon, EyeIcon, HardDriveIcon, PlusIcon, Redo2Icon, Undo2Icon } from "lucide-react"
 
+import { LoaderCircle } from "@/components/animate-ui/icons/loader-circle"
+import { Check } from "@/components/animate-ui/icons/check"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { BlockLibrary } from "@/components/builder/block-library"
 import { BuilderProvider, useBuilder, useHistory } from "@/components/builder/builder-context"
 import { Canvas } from "@/components/builder/canvas"
@@ -41,12 +44,18 @@ function SaveControls() {
   const live = !!meta?.published
   const upToDate = live && !unsaved && meta?.publishedVersion === version
   const publishLabel = upToDate ? "Published" : live ? "Save & update" : "Save & publish"
-  const Icon = { saved: CheckIcon, dirty: CircleDotIcon, drafted: HardDriveIcon, saving: Loader2Icon, error: CloudOffIcon }[status]
+  const Icon = { saved: CheckIcon, dirty: CircleDotIcon, drafted: HardDriveIcon, saving: CircleDotIcon, error: CloudOffIcon }[status]
   return (
     <div className="ml-auto flex items-center gap-2">
       <Hint title={saveLabel[status]} description={saveHint[status]}>
         <span role="status" className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Icon className={cn("size-4", status === "saving" && "animate-spin")} aria-hidden="true" />
+          {status === "saving" ? (
+            <LoaderCircle animate size={16} className="size-4" aria-hidden="true" />
+          ) : status === "saved" ? (
+            <Check animate size={16} className="size-4" aria-hidden="true" />
+          ) : (
+            <Icon className="size-4" aria-hidden="true" />
+          )}
           <span className="max-sm:sr-only">{backupFailed ? "Close this page and you may lose changes" : saveLabel[status]}</span>
         </span>
       </Hint>
@@ -92,7 +101,7 @@ function Toolbar({ onPreview }: { onPreview: () => void }) {
       </Hint>
       <Hint title="Delete" description="Remove the selected block. Undo brings it back." shortcut="Del">
         <Button variant="ghost" size="icon" className={btn} disabled={!picked} onClick={() => picked && deleteBlock(picked)} aria-label="Delete block">
-          <Trash2Icon />
+          <Trash2 animateOnHover size={16} className="size-4" />
         </Button>
       </Hint>
       <span aria-hidden="true" className="mx-1 h-5 w-px bg-border" />

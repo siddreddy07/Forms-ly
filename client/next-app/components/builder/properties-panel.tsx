@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { LayoutTemplateIcon, MousePointerClickIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react"
+import { LayoutTemplateIcon, MousePointerClickIcon, PlusIcon, XIcon } from "lucide-react"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 
 import { blockIcons } from "@/components/builder/block-icons"
 import { LogicEditor } from "@/components/builder/logic-editor"
@@ -111,7 +112,7 @@ function HeaderEditor({ compact, onClose, onDelete }: { compact: boolean; onClos
         {fields}
         {onDelete && (
           <button type="button" onClick={onDelete} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border text-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
-            <Trash2Icon className="size-4" /> Remove header
+            <Trash2 animateOnHover size={16} className="size-4" /> Remove header
           </button>
         )}
       </div>
@@ -123,7 +124,7 @@ function HeaderEditor({ compact, onClose, onDelete }: { compact: boolean; onClos
         <div className="min-w-0 flex-1">{title}</div>
         {onDelete && (
           <button type="button" onClick={onDelete} aria-label="Remove header" className="inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground outline-none hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring">
-            <Trash2Icon className="size-4" />
+            <Trash2 animateOnHover size={16} className="size-4" />
           </button>
         )}
         {onClose && (
@@ -420,7 +421,7 @@ function PropertiesPanel({ onClose, onDelete, compact = false }: { onClose?: () 
         <h2 className="min-w-0 flex-1 truncate text-sm font-medium">{def.label}</h2>
         {onDelete && (
           <button type="button" onClick={onDelete} aria-label="Delete block" className={iconBtn}>
-            <Trash2Icon className="size-4" />
+            <Trash2 animateOnHover size={16} className="size-4" />
           </button>
         )}
         {onClose && (

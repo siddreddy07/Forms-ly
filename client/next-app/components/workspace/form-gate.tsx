@@ -2,7 +2,11 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 
+import { FormCanvasFixture } from "@/components/skeletons/fixtures"
+import { TabSkeleton } from "@/components/skeletons/loading"
+import { Skeleton } from "@/components/skeletons/skeleton"
 import { Button } from "@/components/ui/button"
 import { ApiError, useApi } from "@/lib/api/http"
 import type { FormWithDocument } from "@/lib/api/forms"
@@ -12,27 +16,42 @@ import { parseForm, type FormDocument } from "@/lib/schema"
 
 type Loaded = { form: FormSummary; doc: FormDocument; version: number; updatedAt: string }
 
-type Gate = Loaded & {
+type Actions = {
   /* Call after a successful save so the other tabs and the title show the newest copy. */
+  commit: (next: { doc: FormDocument; version: number; updatedAt: string; title?: string }) => void
   /* Call after a rename so the header and the other tabs show the new name. */
   setTitle: (title: string) => void
-  commit: (next: { doc: FormDocument; version: number; updatedAt: string; title?: string }) => void
 }
 
-const Ctx = React.createContext<Gate | null>(null)
+type State = Actions & {
+  /* Null until the form has arrived from the backend. */
+  loaded: Loaded | null
+  error: "missing" | "failed" | null
+  retry: () => void
+}
 
-export function useFormGate() {
+const Ctx = React.createContext<State | null>(null)
+
+/* For the header: the page chrome shows straight away, and only the name waits for the backend. */
+export function useFormState() {
   const v = React.useContext(Ctx)
-  if (!v) throw new Error("useFormGate must be used inside FormGate")
+  if (!v) throw new Error("useFormState must be used inside FormGate")
   return v
 }
 
+/* For everything inside <FormContent>, which only renders once the form has loaded. */
+export function useFormGate(): Loaded & Actions {
+  const { loaded, commit, setTitle } = useFormState()
+  if (!loaded) throw new Error("useFormGate was used before the form loaded")
+  return React.useMemo(() => ({ ...loaded, commit, setTitle }), [loaded, commit, setTitle])
+}
+
 /* Loads the form from the backend once for the whole form workspace (Build, Design, Share...).
-   Tabs render only after it has loaded, so none of them ever starts from a blank form by mistake. */
+   It never hides the page: the header, tabs and menus are plain UI and show immediately. */
 export function FormGate({ formId, children }: { formId: string; children: React.ReactNode }) {
   const api = useApi()
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
-  const [error, setError] = React.useState<"missing" | "failed" | null>(null)
+  const [error, setError] = React.useState<State["error"]>(null)
   const [attempt, setAttempt] = React.useState(0)
 
   React.useEffect(() => {
@@ -53,7 +72,7 @@ export function FormGate({ formId, children }: { formId: string; children: React
     }
   }, [api, formId, attempt])
 
-  const commit = React.useCallback<Gate["commit"]>(
+  const commit = React.useCallback<Actions["commit"]>(
     (next) => {
       cacheServerRecord(formId, next.doc, next.version, next.updatedAt)
       setLoaded((prev) =>
@@ -68,7 +87,22 @@ export function FormGate({ formId, children }: { formId: string; children: React
     setLoaded((prev) => (prev ? { ...prev, form: { ...prev.form, title } } : prev))
   }, [])
 
-  const value = React.useMemo(() => (loaded ? { ...loaded, commit, setTitle } : null), [loaded, commit, setTitle])
+  const retry = React.useCallback(() => {
+    setError(null)
+    setAttempt((n) => n + 1)
+  }, [])
+
+  const value = React.useMemo(() => ({ loaded, error, retry, commit, setTitle }), [loaded, error, retry, commit, setTitle])
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+}
+
+/* The page's main area. While the form loads it shows a skeleton of that area only, and never renders the
+   tabs before they have their data. */
+export function FormContent({ children }: { children: React.ReactNode }) {
+  const { loaded, error, retry } = useFormState()
+  const pathname = usePathname()
+
+  if (loaded) return <>{children}</>
 
   if (error) {
     return (
@@ -81,20 +115,19 @@ export function FormGate({ formId, children }: { formId: string; children: React
           <Link href="/dashboard" className="inline-flex h-9 items-center rounded-lg border px-3 text-sm font-medium">
             Back to your forms
           </Link>
-          {error === "failed" && (
-            <Button
-              onClick={() => {
-                setError(null)
-                setAttempt((n) => n + 1)
-              }}
-            >
-              Try again
-            </Button>
-          )}
+          {error === "failed" && <Button onClick={retry}>Try again</Button>}
         </div>
       </div>
     )
   }
-  if (!value) return <div className="mx-auto h-64 max-w-6xl animate-pulse px-4 py-8" />
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>
+
+  /* Build and Design show the form on the page; the other tabs show a general content skeleton. */
+  const showsForm = /\/(build|design)$/.test(pathname)
+  return showsForm ? (
+    <Skeleton name="form-canvas" loading fixture={<FormCanvasFixture />}>
+      <FormCanvasFixture />
+    </Skeleton>
+  ) : (
+    <TabSkeleton />
+  )
 }

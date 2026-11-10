@@ -1,7 +1,10 @@
 "use client"
 
+import { TabSkeleton } from "@/components/skeletons/loading"
+
 import * as React from "react"
-import { DownloadIcon, InboxIcon, SearchIcon, Trash2Icon } from "lucide-react"
+import { DownloadIcon, InboxIcon, SearchIcon } from "lucide-react"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { toast } from "sonner"
 
 import { csvEscape, answerText } from "@/components/responses/format"
@@ -47,10 +50,7 @@ export function ResponsesView({ formId }: { formId: string }) {
 
   if (responses === null) {
     return (
-      <Page>
-        <div className="h-10 w-48 animate-pulse rounded-lg bg-muted/40" />
-        <div className="h-64 animate-pulse rounded-xl border bg-muted/30" />
-      </Page>
+      <TabSkeleton />
     )
   }
 
@@ -188,7 +188,7 @@ function DeleteButton({ formId, id }: { formId: string; id: string }) {
         toast("Response deleted")
       }}
     >
-      <Trash2Icon />
+      <Trash2 animateOnHover size={16} className="size-4" />
     </Button>
   )
 }

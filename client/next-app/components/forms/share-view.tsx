@@ -1,5 +1,7 @@
 "use client"
 
+import { TabSkeleton } from "@/components/skeletons/loading"
+
 import Link from "next/link"
 import { CopyIcon, ExternalLinkIcon, GlobeIcon, LockIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -43,7 +45,7 @@ function CopyField({ label, value, multiline }: { label: string; value: string; 
 export function ShareView({ formId }: { formId: string }) {
   const meta = useFormMeta(formId)
   const origin = useOrigin()
-  if (!meta) return <div className="mx-auto h-40 max-w-2xl animate-pulse rounded-xl border bg-muted/30" />
+  if (!meta) return <TabSkeleton />
 
   const url = `${origin}/f/${formId}`
   const embed = `<iframe src="${url}" width="100%" height="700" style="border:0"></iframe>`

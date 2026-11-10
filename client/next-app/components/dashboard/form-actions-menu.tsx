@@ -10,7 +10,6 @@ import {
   FolderIcon,
   MoreHorizontalIcon,
   PencilIcon,
-  Trash2Icon,
 } from "lucide-react"
 
 import {
@@ -23,6 +22,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 import { RenameFormDialog } from "@/components/forms/rename-form-dialog"
 import type { FormSummary } from "@/lib/api/types"
 
@@ -83,7 +83,7 @@ function FormActionsMenu({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={() => actions.onDelete(form.id)}>
-          <Trash2Icon /> Delete
+          <Trash2 animateOnHover size={16} className="size-4" /> Delete
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

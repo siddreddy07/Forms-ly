@@ -8,7 +8,8 @@ import {
   useSortable,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { EyeOffIcon, GripVerticalIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import { EyeOffIcon, GripVerticalIcon, PlusIcon } from "lucide-react"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 
 import { useBuilder } from "@/components/builder/builder-context"
 import { stepZoneId, useDropHint } from "@/components/builder/dnd"
@@ -244,7 +245,7 @@ function Canvas() {
                         onClick={() => removePageBreak(step.id)}
                         className={stepBtn}
                       >
-                        <Trash2Icon className="size-4" />
+                        <Trash2 animateOnHover size={16} className="size-4" />
                       </button>
                     </Hint>
                   )}

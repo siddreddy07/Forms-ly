@@ -9,6 +9,9 @@ import { FilterBar, FilterDrawer, type FolderFilter, type SortKey } from "@/comp
 import type { FormActions } from "@/components/dashboard/form-actions-menu"
 import { FormCard } from "@/components/dashboard/form-card"
 import { NewFormDialog } from "@/components/dashboard/new-form-dialog"
+import { Skeleton } from "@/components/skeletons/skeleton"
+
+import { DashboardFormsFixture } from "@/components/skeletons/fixtures"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { documentForTemplate, type FormListResponse, type FormResponse } from "@/lib/api/forms"
@@ -222,11 +225,11 @@ function DashboardView() {
       <div className="mx-auto w-full max-w-7xl px-4 pb-28 sm:px-6 lg:pt-2 lg:pb-12">
         <FilterBar {...filterProps} />
         {loadState === "loading" ? (
-          <ul className="mt-4 grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" aria-busy="true" aria-label="Loading your forms">
-            {Array.from({ length: 4 }, (_, i) => (
-              <li key={i} className="h-28 animate-pulse rounded-xl border bg-muted/50 sm:h-52" />
-            ))}
-          </ul>
+          <div className="mt-4" aria-busy="true" aria-label="Loading your forms">
+            <Skeleton name="dashboard-forms" loading fixture={<DashboardFormsFixture />}>
+              <DashboardFormsFixture />
+            </Skeleton>
+          </div>
         ) : loadState === "error" ? (
           <div className="mt-16 grid justify-items-center gap-3 text-center">
             <p className="text-muted-foreground">Couldn&apos;t load your forms. Check your connection.</p>

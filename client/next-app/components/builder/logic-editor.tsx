@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { nanoid } from "nanoid"
-import { PlusIcon, Trash2Icon, XIcon } from "lucide-react"
+import { PlusIcon, XIcon } from "lucide-react"
+import { Trash2 } from "@/components/animate-ui/icons/trash-2"
 
 import { useBuilder } from "@/components/builder/builder-context"
 import { Input } from "@/components/ui/input"
@@ -221,7 +222,7 @@ export function LogicEditor({ block }: { block: Block }) {
           onClick={() => setRule(undefined)}
           className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-sm text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
         >
-          <Trash2Icon className="size-4" /> Remove rule
+          <Trash2 animateOnHover size={16} className="size-4" /> Remove rule
         </button>
       </div>
     </div>

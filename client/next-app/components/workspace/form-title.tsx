@@ -4,15 +4,19 @@ import * as React from "react"
 import { PencilIcon } from "lucide-react"
 
 import { RenameFormDialog } from "@/components/forms/rename-form-dialog"
-import { useFormGate } from "@/components/workspace/form-gate"
+import { useFormState } from "@/components/workspace/form-gate"
 import { useApi } from "@/lib/api/http"
 import type { FormResponse } from "@/lib/api/forms"
 
-/* The form's name in the header. Click it to rename. */
+/* The form's name in the header. Click it to rename. The name comes from the backend, so until it
+   arrives a small placeholder stands in; the rest of the header never waits. */
 export function FormTitle({ formId }: { formId: string }) {
-  const { form, setTitle } = useFormGate()
+  const { loaded, setTitle } = useFormState()
   const api = useApi()
   const [open, setOpen] = React.useState(false)
+
+  if (!loaded) return <span aria-hidden="true" className="h-5 w-36 animate-pulse rounded-md bg-muted sm:w-48" />
+  const { form } = loaded
 
   async function rename(name: string) {
     const res = await api<FormResponse>(`/forms/${formId}`, { method: "PATCH", body: { title: name } })

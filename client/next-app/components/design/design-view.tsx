@@ -8,6 +8,7 @@ import { FormFrame } from "@/components/design/form-frame"
 import { SaveStatus } from "@/components/design/save-status"
 import { AiPanel, BrandPanel, ColourPanel, FontPanel, ThanksPanel } from "@/components/design/panels"
 import { FormRenderer } from "@/components/renderer/form-renderer"
+import { TabSkeleton } from "@/components/skeletons/loading"
 import { Button } from "@/components/ui/button"
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer"
 import { readPublishedDoc } from "@/lib/api/mock-meta"
@@ -118,7 +119,7 @@ export function DesignView({ formId }: { formId: string }) {
     [formId, design]
   )
 
-  if (!design || !doc) return <div className="mx-auto h-64 max-w-6xl animate-pulse px-4 py-8" />
+  if (!design || !doc) return <TabSkeleton />
 
   /* Opening the Thanks tab shows the thank-you page in the preview; any other tab shows the form. */
   const onTab = (t: TabId) => setView(t === "thanks" ? "thanks" : "form")
