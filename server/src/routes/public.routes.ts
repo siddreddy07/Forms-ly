@@ -1,13 +1,15 @@
 import { createHash, timingSafeEqual } from "node:crypto"
 
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { Router } from "express"
 import rateLimit, { ipKeyGenerator } from "express-rate-limit"
 import { z } from "zod"
 
 import { db } from "../config/db.js"
 import { isSlug } from "../libs/slug.js"
-import { formVersions, forms, responses } from "../schema.js"
+import { checkSubmission, LAYOUT_BLOCKS, type Block, type FileRef } from "../libs/answers.js"
+import { files, formVersions, forms, responses } from "../schema.js"
+import { checkUploadedFile, PLATFORM_FREE_FILES, platformFilesUsed, storageFor, uploadAuth } from "../services/storage.js"
 
 // Everything here is open to anyone, with no sign-in. So it only ever sends what a person filling in the form
 // needs: the published copy, the design and the title. Never the owner, the id or the unpublished draft.
@@ -172,27 +174,25 @@ const submitSchema = z.object({
   code: z.string().regex(/^\d{4}$/).optional(),
 })
 
-const LAYOUT_BLOCKS = new Set(["heading", "paragraph", "divider", "image"])
+type Live = Extract<Awaited<ReturnType<typeof liveBody>>, { state: "live" }>
 
-// One answer, cut down to something safe to store: text, numbers, yes/no, a list of text, or file names and sizes.
-function cleanAnswer(value: unknown): unknown {
-  if (typeof value === "string") return value.slice(0, 5000)
-  if (typeof value === "number") return Number.isFinite(value) ? value : undefined
-  if (typeof value === "boolean") return value
-  if (Array.isArray(value)) {
-    return value
-      .slice(0, 100)
-      .map((v) => {
-        if (typeof v === "string") return v.slice(0, 500)
-        if (v && typeof v === "object") {
-          const f = v as { name?: unknown; size?: unknown }
-          return typeof f.name === "string" ? { name: f.name.slice(0, 200), size: typeof f.size === "number" ? f.size : 0 } : undefined
-        }
-        return undefined
-      })
-      .filter((v) => v !== undefined)
-  }
-  return undefined
+// The form's answerable questions, from the published copy
+function answerBlocks(live: Live): Block[] {
+  const steps = (live.document as { steps?: { blocks?: unknown[] }[] }).steps ?? []
+  return steps
+    .flatMap((st) => (Array.isArray(st.blocks) ? st.blocks : []))
+    .filter((b): b is Block => !!b && typeof (b as { id?: unknown }).id === "string" && !LAYOUT_BLOCKS.has(String((b as { type?: unknown }).type)))
+}
+
+// Is this visitor allowed to use the form right now? Open, and for a private form the right code.
+async function openFor(slug: string, code: string | undefined) {
+  const [form] = await db.select().from(forms).where(eq(forms.slug, slug))
+  if (!form) return { ok: false as const, error: 404 as const, message: "Form not found" }
+  if (!isOpen(form)) return { ok: false as const, error: 409 as const, message: "This form is not open any more." }
+  if (form.access === "private" && !(form.accessCode && code && sameCode(form.accessCode, code))) return { ok: false as const, error: 403 as const, message: "Wrong code" }
+  const live = await liveBody(form)
+  if (live.state !== "live") return { ok: false as const, error: 409 as const, message: "This form is not open any more." }
+  return { ok: true as const, form, live }
 }
 
 router.post("/forms/:slug/responses", submitPerVisitor, submitPerForm, async (req, res) => {
@@ -205,35 +205,56 @@ router.post("/forms/:slug/responses", submitPerVisitor, submitPerForm, async (re
     return
   }
 
-  const [form] = await db.select().from(forms).where(eq(forms.slug, slug))
-  if (!form) {
-    res.status(404).json({ error: "Form not found" })
+  const open = await openFor(slug, body.data.code)
+  if (!open.ok) {
+    res.status(open.error).json({ error: open.message })
     return
   }
-  if (!isOpen(form)) {
-    res.status(409).json({ error: "This form is not open any more." })
-    return
-  }
-  if (form.access === "private" && !(form.accessCode && body.data.code && sameCode(form.accessCode, body.data.code))) {
-    res.status(403).json({ error: "Wrong code" })
-    return
-  }
+  const { form, live } = open
 
-  const live = await liveBody(form)
-  if (live.state !== "live") {
-    res.status(409).json({ error: "This form is not open any more." })
+  // Required questions and every answer's shape, using the questions the server holds (not the browser's)
+  const fields = answerBlocks(live)
+  const checked = checkSubmission(fields, body.data.answers)
+  if (!checked.ok) {
+    res.status(422).json({ error: "Some answers need attention.", errors: checked.errors })
     return
   }
+  const answers = checked.answers
 
-  const steps = (live.document as { steps?: { blocks?: unknown[] }[] }).steps ?? []
-  const fields = steps
-    .flatMap((st) => (Array.isArray(st.blocks) ? st.blocks : []))
-    .filter((b): b is { id: string; type: string } => !!b && typeof (b as { id?: unknown }).id === "string" && !LAYOUT_BLOCKS.has(String((b as { type?: unknown }).type)))
-
-  const answers: Record<string, unknown> = {}
-  for (const f of fields) {
-    const clean = cleanAnswer(body.data.answers[f.id])
-    if (clean !== undefined) answers[f.id] = clean
+  // Uploads: ask the storage what really arrived, and keep its name and size, not the browser's
+  const stored: { blockId: string; fileId: string; filePath: string; name: string; size: number; mime: string }[] = []
+  const refs = fields.flatMap((b) =>
+    b.type === "file_upload" ? ((answers[b.id] as FileRef[] | undefined) ?? []).map((r) => ({ blockId: b.id, fileId: r.fileId })) : []
+  )
+  let storage: Awaited<ReturnType<typeof storageFor>> = null
+  if (refs.length > 0) {
+    storage = await storageFor(form.ownerId)
+    if (!storage) {
+      res.status(503).json({ error: "File uploads are turned off for this form." })
+      return
+    }
+    const reused = await db.select({ ref: files.providerRef }).from(files).where(inArray(files.providerRef, refs.map((r) => r.fileId)))
+    if (reused.length > 0) {
+      res.status(422).json({ error: "That file was already used.", errors: { [refs[0]!.blockId]: "Upload the file again" } })
+      return
+    }
+    if (storage.source === "platform" && (await platformFilesUsed(form.ownerId)) + refs.length > PLATFORM_FREE_FILES) {
+      res.status(422).json({ error: "This form can't take more uploads right now.", errors: { [refs[0]!.blockId]: "Uploads are full for this form" } })
+      return
+    }
+    for (const r of refs) {
+      const result = await checkUploadedFile(storage, r.fileId, { formId: form.id })
+      if (!result.ok) {
+        res.status(422).json({ error: result.reason, errors: { [r.blockId]: result.reason } })
+        return
+      }
+      stored.push({ blockId: r.blockId, fileId: r.fileId, filePath: result.filePath, name: result.name, size: result.size, mime: result.mime })
+    }
+    for (const b of fields) {
+      if (b.type === "file_upload" && answers[b.id]) {
+        answers[b.id] = stored.filter((f) => f.blockId === b.id).map((f) => ({ fileId: f.fileId, name: f.name, size: f.size }))
+      }
+    }
   }
 
   const [saved] = await db
@@ -250,7 +271,89 @@ router.post("/forms/:slug/responses", submitPerVisitor, submitPerForm, async (re
     })
     .returning({ id: responses.id })
 
+  if (stored.length > 0 && storage) {
+    const onPlatform = storage.source === "platform"
+    try {
+      await db.insert(files).values(
+        stored.map((f) => ({
+          responseId: saved!.id,
+          ownerId: form.ownerId,
+          provider: "imagekit" as const,
+          onPlatform,
+          providerRef: f.fileId,
+          filePath: f.filePath,
+          name: f.name,
+          size: f.size,
+          mime: f.mime,
+        }))
+      )
+    } catch (error) {
+      // No response without its files
+      await db.delete(responses).where(eq(responses.id, saved!.id))
+      throw error
+    }
+  }
+
   res.status(201).json({ id: saved!.id })
+})
+
+// ---------- POST /public/forms/:slug/uploads : permission to upload one file ----------
+// Body: { code? }
+// 200 { uploadUrl, publicKey, token, expire, signature, folder, ... }   what the browser sends to ImageKit
+// The file goes straight from the browser to storage. It only counts once the form is submitted with it.
+
+const uploadPerVisitor = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) => `${ipKeyGenerator(req.ip ?? "")}:${String(req.params.slug)}`,
+  handler: (_req, res) => {
+    res.status(429).json({ error: "Too many uploads. Wait a minute and try again." })
+  },
+})
+
+const uploadPerForm = rateLimit({
+  windowMs: 10 * 60_000,
+  limit: 300,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  keyGenerator: (req) => String(req.params.slug),
+  handler: (_req, res) => {
+    res.status(429).json({ error: "This form is getting a lot of uploads. Try again in a few minutes." })
+  },
+})
+
+router.post("/forms/:slug/uploads", uploadPerVisitor, uploadPerForm, async (req, res) => {
+  res.set("Cache-Control", "no-store")
+
+  const slug = String(req.params.slug).toLowerCase()
+  const body = z.object({ code: z.string().regex(/^\d{4}$/).optional() }).safeParse(req.body ?? {})
+  if (!isSlug(slug) || !body.success) {
+    res.status(400).json({ error: "Invalid request" })
+    return
+  }
+
+  const open = await openFor(slug, body.data.code)
+  if (!open.ok) {
+    res.status(open.error).json({ error: open.message })
+    return
+  }
+  // Only forms that ask for a file can get upload permission
+  if (!answerBlocks(open.live).some((b) => b.type === "file_upload")) {
+    res.status(400).json({ error: "This form has no file questions." })
+    return
+  }
+  const storage = await storageFor(open.form.ownerId)
+  if (!storage) {
+    res.status(503).json({ error: "File uploads are turned off for this form." })
+    return
+  }
+  if (storage.source === "platform" && (await platformFilesUsed(open.form.ownerId)) >= PLATFORM_FREE_FILES) {
+    res.status(409).json({ error: "This form can't take more uploads right now." })
+    return
+  }
+  res.json({ uploadUrl: "https://upload.imagekit.io/api/v1/files/upload", ...uploadAuth(storage, open.form.id) })
 })
 
 export default router

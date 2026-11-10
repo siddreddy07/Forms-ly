@@ -1,12 +1,15 @@
 import { randomInt } from "node:crypto"
-import { and, count, desc, eq, isNotNull, isNull, sql } from "drizzle-orm"
+import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm"
 import { Router } from "express"
 import rateLimit from "express-rate-limit"
 import { z } from "zod"
 
 import { db } from "../config/db.js"
 import { makeSlug } from "../libs/slug.js"
-import { formVersions, forms, responses, type Form } from "../schema.js"
+import { buildAnalytics } from "../libs/analytics.js"
+import type { Block } from "../libs/answers.js"
+import { files, formVersions, forms, responses, type Form } from "../schema.js"
+import { deleteStoredFile, ownStorage, platformStorage, privateFileUrl } from "../services/storage.js"
 
 const router = Router()
 
@@ -443,7 +446,8 @@ router.delete("/:id", async (req, res) => {
 })
 
 // ---------- GET /forms/:id/responses : everything people submitted, newest first ----------
-// Used by the Responses and Analytics tabs. Capped so one huge form cannot flood the browser.
+// Used by the Responses tab. Capped so one huge form cannot flood the browser.
+// A file answer comes with a link that stops working after an hour (the files are private).
 
 const RESPONSE_CAP = 5000
 
@@ -468,10 +472,84 @@ router.get("/:id/responses", async (req, res) => {
     .orderBy(desc(responses.submittedAt))
     .limit(RESPONSE_CAP)
   const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
-  res.json({ items: rows.map((r) => ({ ...r, formId: form.id })), total, publishedAt: form.publishedAt, createdAt: form.createdAt })
+
+  // Links for the files, keyed by the file's id at the storage
+  const links = new Map<string, string>()
+  if (rows.length > 0) {
+    const stored = await db
+      .select()
+      .from(files)
+      .where(inArray(files.responseId, rows.map((r) => r.id)))
+    if (stored.length > 0) {
+      const platform = platformStorage()
+      const own = stored.some((f) => !f.onPlatform) ? await ownStorage(form.ownerId) : null
+      for (const f of stored) {
+        const storage = f.onPlatform ? platform : own
+        if (storage) links.set(f.providerRef, privateFileUrl(storage, f.filePath))
+      }
+    }
+  }
+
+  const items = rows.map((r) => {
+    const answers: Record<string, unknown> = { ...r.answers }
+    for (const [key, value] of Object.entries(answers)) {
+      if (Array.isArray(value) && value.some((v) => v && typeof v === "object" && "fileId" in v)) {
+        answers[key] = value.map((v) => {
+          const file = v as { fileId: string; name: string; size: number }
+          return { name: file.name, size: file.size, url: links.get(file.fileId) ?? null }
+        })
+      }
+    }
+    return { ...r, answers, formId: form.id }
+  })
+
+  res.json({ items, total, publishedAt: form.publishedAt, createdAt: form.createdAt })
 })
 
-// ---------- DELETE /forms/:id/responses/:rid : remove one response ----------
+// ---------- GET /forms/:id/analytics?range=7|30|all&tz=<minutes> : numbers only ----------
+// Counts, averages and a per day series. Never an answer's text, a name, an email or a file name. See libs/analytics.ts.
+
+const ANALYTICS_CAP = 20000
+
+const analyticsQuery = z.object({
+  range: z.enum(["7", "30", "all"]).default("30"),
+  tz: z.coerce.number().int().min(-840).max(840).default(0),
+})
+
+router.get("/:id/analytics", async (req, res) => {
+  const query = analyticsQuery.safeParse(req.query)
+  const form = query.success ? await findOwnForm(req.user!.id, req.params.id) : undefined
+  if (!query.success || !form) {
+    res.status(form ? 400 : 404).json({ error: form ? "Invalid request" : "Form not found" })
+    return
+  }
+
+  // The questions as they are now: the live copy if there is one, otherwise the draft
+  let document: unknown = form.draft
+  if (form.publishedVersion !== null) {
+    const [live] = await db
+      .select({ document: formVersions.document })
+      .from(formVersions)
+      .where(and(eq(formVersions.formId, form.id), eq(formVersions.version, form.publishedVersion)))
+    if (live) document = live.document
+  }
+  const steps = (document as { steps?: { blocks?: unknown[] }[] }).steps ?? []
+  const blocks = steps.flatMap((st) => (Array.isArray(st.blocks) ? st.blocks : [])).filter((b): b is Block => !!b && typeof (b as { id?: unknown }).id === "string")
+
+  const rows = await db
+    .select({ answers: responses.answers, durationMs: responses.durationMs, submittedAt: responses.submittedAt, device: responses.device })
+    .from(responses)
+    .where(eq(responses.formId, form.id))
+    .orderBy(desc(responses.submittedAt))
+    .limit(ANALYTICS_CAP)
+  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
+
+  res.json(
+    buildAnalytics({ rows, blocks, range: query.data.range, tzOffsetMin: query.data.tz, now: Date.now(), publishedAt: form.publishedAt, total })
+  )
+})
+
+// ---------- DELETE /forms/:id/responses/:rid : remove one response and its files ----------
 
 router.delete("/:id/responses/:rid", async (req, res) => {
   const form = await findOwnForm(req.user!.id, req.params.id)
@@ -479,7 +557,32 @@ router.delete("/:id/responses/:rid", async (req, res) => {
     res.status(404).json({ error: "Response not found" })
     return
   }
-  await db.delete(responses).where(and(eq(responses.id, req.params.rid), eq(responses.formId, form.id)))
+  const [response] = await db
+    .select({ id: responses.id })
+    .from(responses)
+    .where(and(eq(responses.id, req.params.rid), eq(responses.formId, form.id)))
+  if (!response) {
+    res.status(204).end()
+    return
+  }
+
+  // Take the files out of storage first; if that fails the response stays so nothing is left behind
+  const stored = await db.select().from(files).where(eq(files.responseId, response.id))
+  if (stored.length > 0) {
+    const platform = platformStorage()
+    const own = stored.some((f) => !f.onPlatform) ? await ownStorage(form.ownerId) : null
+    try {
+      for (const f of stored) {
+        const storage = f.onPlatform ? platform : own
+        if (storage) await deleteStoredFile(storage, f.providerRef)
+      }
+    } catch (error) {
+      console.error(error)
+      res.status(502).json({ error: "Couldn't remove the files. Try again." })
+      return
+    }
+  }
+  await db.delete(responses).where(eq(responses.id, response.id))
   res.status(204).end()
 })
 
