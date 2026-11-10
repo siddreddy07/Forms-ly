@@ -1,8 +1,9 @@
 import Link from "next/link"
 
+import { StartLink } from "@/components/auth/start-link"
 import { MadeWith } from "@/components/brand/made-with"
 import { WarmGlow } from "@/components/ui/warm-glow"
-import { authLinks, brand } from "@/lib/brand"
+import { brand } from "@/lib/brand"
 
 /* The page a visitor sees when a form exists but can't be filled in. Same plain background as the 404 page; the form
    itself sits there with its questions blacked out, and a padlock (or a clock, if it just isn't open yet) on top. */
@@ -91,12 +92,12 @@ export function ClosedScene({ variant, children }: { variant: Variant; children?
             <p className="text-base leading-relaxed text-muted-foreground">{text}</p>
             {children}
             <div className="flex flex-wrap gap-2.5 pt-2">
-              <Link
-                href={authLinks.signUp}
+              <StartLink
                 className="inline-flex min-h-11 items-center rounded-full bg-foreground px-5 text-sm font-medium text-background outline-none transition-colors hover:bg-foreground/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                signedInChildren="Go to your forms"
               >
                 Make your own form
-              </Link>
+              </StartLink>
               <Link
                 href="/"
                 className="inline-flex min-h-11 items-center rounded-full border border-foreground/15 px-5 text-sm font-medium outline-none transition-colors hover:bg-foreground/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"

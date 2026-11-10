@@ -8,7 +8,8 @@ export default function MarketingLayout({
     <div className="relative isolate">
       <WarmGlow size="hero" />
       <Navbar />
-      <main>{children}</main>
+      {/* Cards that fly out of the template stack must never make the page wider than the screen. */}
+      <main className="overflow-x-clip">{children}</main>
     </div>
   )
 }

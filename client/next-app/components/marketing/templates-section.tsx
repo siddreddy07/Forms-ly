@@ -17,17 +17,17 @@ const templates = [
 
 function TemplateCard({ t }: { t: (typeof templates)[number] }) {
   return (
-    <div className="flex h-full flex-col justify-between gap-4 bg-card p-5 text-card-foreground sm:p-6">
+    <div className="flex h-full flex-col justify-between gap-3 bg-card p-4 text-card-foreground sm:gap-4 sm:p-5">
       <div className="grid gap-1.5">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="marketing-serif text-3xl">{t.label}</h3>
+          <h3 className="marketing-serif text-2xl sm:text-3xl">{t.label}</h3>
           <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: t.color }} aria-hidden="true" />
         </div>
         <p className="text-sm text-muted-foreground">{t.text}</p>
       </div>
       <div className="grid gap-2" aria-hidden="true">
-        {t.sample.map((q) => (
-          <div key={q} className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
+        {t.sample.map((q, i) => (
+          <div key={q} className={`flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-1.5 text-sm sm:py-2 ${i === 3 ? "max-sm:hidden" : ""}`}>
             <span className="truncate">{q}</span>
             <span className="h-1.5 w-8 shrink-0 rounded-full bg-muted" />
           </div>
@@ -43,7 +43,7 @@ function TemplateCard({ t }: { t: (typeof templates)[number] }) {
 
 function TemplatesSection() {
   return (
-    <section id="templates" className="scroll-mt-24 px-4 pb-14 sm:px-6 sm:pb-24">
+    <section id="templates" className="scroll-mt-24 overflow-x-clip px-4 pb-14 sm:px-6 sm:pb-24">
       <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <div className="grid justify-items-center gap-4 text-center lg:justify-items-start lg:text-left">
           <Pill>Templates</Pill>
@@ -52,7 +52,7 @@ function TemplatesSection() {
         </div>
 
         {/* The stack is a fixed size, so it takes the same room on every screen. */}
-        <div className="mx-auto h-[24rem] w-[min(21rem,82vw)] sm:h-[26rem] sm:w-[23rem]">
+        <div className="mx-auto h-[19rem] w-[min(16.5rem,70vw)] sm:h-[23rem] sm:w-[20rem]">
           <Stack
             label="Template cards"
             cards={templates.map((t) => (
@@ -61,7 +61,7 @@ function TemplatesSection() {
             layout="fan"
             visible={3}
             spread={0.7}
-            radius={24}
+            radius={20}
             autoplay
             autoplayDelay={3200}
             pauseOnHover

@@ -16,6 +16,7 @@ import { motion, MotionConfig } from "motion/react"
 import { Show, SignInButton, SignUpButton, UserButton } from "@clerk/nextjs"
 
 import { Logo, LogoMark } from "@/components/brand/logo"
+import { ThemePicker, ThemeToggle } from "@/components/theme-switcher"
 import { buttonVariants } from "@/components/ui/button"
 import {
   Sheet,
@@ -108,6 +109,7 @@ function Navbar() {
             ))}
           </ul>
           <div className="flex items-center gap-1">
+            <ThemeToggle />
             <Show when="signed-out">
               <SignInButton mode="modal">
                 <button type="button" className={linkClass}>Sign in</button>
@@ -136,14 +138,14 @@ function Navbar() {
           <nav
             aria-label="Main"
             className={cn(
-              "flex h-14 w-full max-w-sm items-center justify-between rounded-full border bg-background/85 pr-2 pl-5 backdrop-blur-xl transition-shadow duration-500",
+              "grid h-14 w-full max-w-sm grid-cols-[1fr_auto_1fr] items-center rounded-full border bg-background/85 pr-2 pl-5 backdrop-blur-xl transition-shadow duration-500 md:max-w-md",
               scrolled && "shadow-md"
             )}
           >
             <Link
               href="/"
               aria-label={`${brand.name} home`}
-              className="rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+              className="justify-self-start rounded-full outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
             >
               <LogoMark />
             </Link>
@@ -153,7 +155,7 @@ function Navbar() {
             <Sheet open={open} onOpenChange={setOpen}>
               <SheetTrigger
                 aria-label="Open menu"
-                className="inline-flex size-10 items-center justify-center rounded-full outline-none transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className="inline-flex size-10 items-center justify-center justify-self-end rounded-full outline-none transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <MenuIcon className="size-5" />
               </SheetTrigger>
@@ -202,7 +204,11 @@ function Navbar() {
                   ))}
                 </ul>
 
-                <div className="mt-2 grid grid-cols-2 gap-2 border-t p-1.5 pt-2.5">
+                <div className="mt-2 grid gap-2 border-t p-1.5 pt-2.5">
+                  <ThemePicker />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 p-1.5 pt-0">
                   <Show when="signed-out">
                     <SignInButton mode="modal">
                       <button type="button" className={buttonVariants({ size: "lg", variant: "outline" })}>

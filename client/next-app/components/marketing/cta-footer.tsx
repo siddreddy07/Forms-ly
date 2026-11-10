@@ -1,11 +1,22 @@
 "use client"
 
 import Link from "next/link"
-import { SignUpButton } from "@clerk/nextjs"
 import { ArrowUpRightIcon } from "lucide-react"
 
+import { SignInLink, StartLink } from "@/components/auth/start-link"
 import { Logo } from "@/components/brand/logo"
-import { authLinks, brand, navLinks } from "@/lib/brand"
+import { brand, navLinks } from "@/lib/brand"
+
+function CtaLabel({ text }: { text: string }) {
+  return (
+    <>
+      {text}
+      <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-b from-[oklch(0.85_0.16_75)] to-[oklch(0.72_0.18_50)] text-[oklch(0.2_0.02_50)]">
+        <ArrowUpRightIcon className="size-4 transition-transform duration-300 group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5" />
+      </span>
+    </>
+  )
+}
 
 /* The last call to action, then the footer with the name set huge, cut off at the bottom of the page. */
 function CtaFooter() {
@@ -17,14 +28,13 @@ function CtaFooter() {
           Set up your first form in minutes
         </h2>
         <div className="relative mt-6 flex justify-center sm:mt-9">
-          <SignUpButton mode="modal">
-            <button type="button" className="group/cta inline-flex h-12 items-center gap-3 rounded-full bg-background py-1.5 pr-1.5 pl-6 text-base font-medium text-foreground outline-none transition-colors hover:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-background">
-              Start for free
-              <span className="flex size-9 items-center justify-center rounded-full bg-gradient-to-b from-[oklch(0.85_0.16_75)] to-[oklch(0.72_0.18_50)] text-[oklch(0.2_0.02_50)]">
-                <ArrowUpRightIcon className="size-4 transition-transform duration-300 group-hover/cta:translate-x-0.5 group-hover/cta:-translate-y-0.5" />
-              </span>
-            </button>
-          </SignUpButton>
+          <StartLink
+            modal
+            className="group/cta inline-flex h-12 items-center gap-3 rounded-full bg-background py-1.5 pr-1.5 pl-6 text-base font-medium text-foreground outline-none transition-colors hover:bg-background/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-background"
+            signedInChildren={<CtaLabel text="Go to dashboard" />}
+          >
+            <CtaLabel text="Start for free" />
+          </StartLink>
         </div>
       </div>
 
@@ -42,10 +52,14 @@ function CtaFooter() {
                 <ArrowUpRightIcon className="size-3 text-[oklch(0.7_0.17_55)] dark:text-[var(--warm)]" aria-hidden="true" />
               </Link>
             ))}
-          <Link href={authLinks.signIn} className="inline-flex items-center gap-1 rounded text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
-            Sign in
-            <ArrowUpRightIcon className="size-3 text-[oklch(0.7_0.17_55)] dark:text-[var(--warm)]" aria-hidden="true" />
-          </Link>
+          <SignInLink className="inline-flex items-center gap-1 rounded text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+            {(label) => (
+              <>
+                {label}
+                <ArrowUpRightIcon className="size-3 text-[oklch(0.7_0.17_55)] dark:text-[var(--warm)]" aria-hidden="true" />
+              </>
+            )}
+          </SignInLink>
         </nav>
       </div>
 

@@ -1,10 +1,10 @@
 ﻿"use client"
 
-import { SignUpButton } from "@clerk/nextjs"
 import { ArrowRightIcon, CheckIcon } from "lucide-react"
 import { motion, MotionConfig } from "motion/react"
 import * as React from "react"
 
+import { StartLink } from "@/components/auth/start-link"
 import { LiveForm } from "@/components/marketing/live-form"
 import { buttonVariants } from "@/components/ui/button"
 import { accentPresets, defaultDesign, fonts, radii, type FontId, type RadiusId } from "@/lib/api/mock-design"
@@ -121,12 +121,19 @@ function Hero() {
           </motion.p>
 
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease, delay: 0.78 }} className="mt-6 flex justify-center sm:mt-10">
-            <SignUpButton mode="modal">
-              <button type="button" className={`${buttonVariants({ size: "lg", shape: "pill" })} group/cta h-12 px-6 text-base`}>
-                Start for free
-                <ArrowRightIcon data-icon="inline-end" className="transition-transform duration-300 group-hover/cta:translate-x-1" />
-              </button>
-            </SignUpButton>
+            <StartLink
+              modal
+              className={`${buttonVariants({ size: "lg", shape: "pill" })} group/cta h-12 px-6 text-base`}
+              signedInChildren={
+                <>
+                  Go to dashboard
+                  <ArrowRightIcon data-icon="inline-end" className="transition-transform duration-300 group-hover/cta:translate-x-1" />
+                </>
+              }
+            >
+              Start for free
+              <ArrowRightIcon data-icon="inline-end" className="transition-transform duration-300 group-hover/cta:translate-x-1" />
+            </StartLink>
           </motion.div>
         </div>
 

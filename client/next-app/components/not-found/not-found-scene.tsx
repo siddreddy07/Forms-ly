@@ -3,6 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@clerk/nextjs"
 
 import { WarmGlow } from "@/components/ui/warm-glow"
 import { authLinks, brand } from "@/lib/brand"
@@ -22,8 +23,8 @@ type Pad = {
   href?: string
 }
 
-const pads: Pad[] = [
-  { kind: "triangle", color: "#2fd08c", at: [450, 90], label: "Build a form", href: authLinks.signUp },
+const padsFor = (signedIn: boolean): Pad[] => [
+  { kind: "triangle", color: "#2fd08c", at: [450, 90], label: "Build a form", href: signedIn ? "/dashboard" : authLinks.signUp },
   { kind: "square", color: "#f4a6c6", at: [400, 140], label: "Your forms", href: "/dashboard" },
   { kind: "circle", color: "#ff3b4d", at: [500, 140], label: "Go back" },
   { kind: "cross", color: "#3f7bff", at: [450, 190], label: "Go home", href: "/" },
@@ -101,6 +102,8 @@ function PadBody() {
 
 export function NotFoundScene({ title, text }: { title: string; text: string }) {
   const router = useRouter()
+  const { isSignedIn } = useAuth()
+  const pads = padsFor(!!isSignedIn)
   const [hot, setHot] = React.useState<Kind | null>(null)
 
   /* Back leaves the site if this page was the first one opened, so fall back to the home page then. */
