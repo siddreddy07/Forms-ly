@@ -19,6 +19,9 @@ import { useApi } from "@/lib/api/http"
 import type { FormSummary } from "@/lib/api/types"
 import { clearLocalForm } from "@/lib/local-form"
 
+/* How many forms to ask for at a time. The "Load more" button fetches the next batch. */
+const PAGE_SIZE = 24
+
 function SearchField({
   value,
   onChange,
@@ -48,19 +51,63 @@ function DashboardView() {
   const [query, setQuery] = React.useState("")
   const searchRef = React.useRef<HTMLDivElement>(null)
   const [dockVisible, setDockVisible] = React.useState(false)
-  const [all, setAll] = React.useState<FormSummary[]>([])
+  const [items, setItems] = React.useState<FormSummary[]>([])
+  const [total, setTotal] = React.useState(0)
+  const [counts, setCounts] = React.useState({ all: 0, archived: 0 })
+  const [nextCursor, setNextCursor] = React.useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = React.useState(false)
   const [loadState, setLoadState] = React.useState<"loading" | "ready" | "error">("loading")
   const [attempt, setAttempt] = React.useState(0)
   const [filter, setFilter] = React.useState<FolderFilter>("all")
   const [sort, setSort] = React.useState<SortKey>("recent")
 
-  /* Load every form (live and archived) from the backend. */
+  /* Wait for a pause in typing before asking the server, so every letter is not a request. */
+  const [search, setSearch] = React.useState("")
+  React.useEffect(() => {
+    const timer = setTimeout(() => setSearch(query.trim()), 300)
+    return () => clearTimeout(timer)
+  }, [query])
+
+  /* One page of forms. The server does the searching, sorting and filtering; we keep the cursor it sends back. */
+  const pagePath = React.useCallback(
+    (cursor?: string | null) => {
+      const params = new URLSearchParams({
+        archived: filter === "archived" ? "true" : "all",
+        sort,
+        limit: String(PAGE_SIZE),
+      })
+      if (search) params.set("q", search)
+      if (cursor) params.set("cursor", cursor)
+      return `/forms?${params.toString()}`
+    },
+    [filter, sort, search]
+  )
+
+  const failed = (what: string) => toast.error(`Couldn't ${what}. Check your connection and try again.`)
+
+  /* Loads the first page again (after a change, or when the search or filters change). */
+  const refresh = React.useCallback(async () => {
+    try {
+      const res = await api<FormListResponse>(pagePath())
+      setItems(res.forms)
+      setTotal(res.total)
+      setCounts(res.counts)
+      setNextCursor(res.nextCursor)
+      setLoadState("ready")
+    } catch {
+      failed("refresh your forms")
+    }
+  }, [api, pagePath])
+
   React.useEffect(() => {
     let cancelled = false
-    api<FormListResponse>("/forms?archived=all")
+    api<FormListResponse>(pagePath())
       .then((res) => {
         if (cancelled) return
-        setAll(res.forms)
+        setItems(res.forms)
+        setTotal(res.total)
+        setCounts(res.counts)
+        setNextCursor(res.nextCursor)
         setLoadState("ready")
       })
       .catch(() => {
@@ -69,17 +116,39 @@ function DashboardView() {
     return () => {
       cancelled = true
     }
-  }, [api, attempt])
+  }, [api, pagePath, attempt])
 
-  const replace = (form: FormSummary) => setAll((prev) => prev.map((f) => (f.id === form.id ? { ...f, ...form } : f)))
-  const failed = (what: string) => toast.error(`Couldn't ${what}. Check your connection and try again.`)
+  async function loadMore() {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const res = await api<FormListResponse>(pagePath(nextCursor))
+      setItems((prev) => {
+        const seen = new Set(prev.map((f) => f.id))
+        return [...prev, ...res.forms.filter((f) => !seen.has(f.id))]
+      })
+      setTotal(res.total)
+      setCounts(res.counts)
+      setNextCursor(res.nextCursor)
+    } catch {
+      failed("load more forms")
+    } finally {
+      setLoadingMore(false)
+    }
+  }
+
+  const replace = (form: FormSummary) => setItems((prev) => prev.map((f) => (f.id === form.id ? { ...f, ...form } : f)))
+  const bumpCounts = (archived: boolean, delta: number) =>
+    setCounts((c) => (archived ? { ...c, archived: c.archived + delta } : { ...c, all: c.all + delta }))
 
   async function createForm({ title, templateId }: { title: string; templateId: string }) {
     try {
       const { form } = await api<FormResponse>("/forms", { method: "POST", body: { title, document: documentForTemplate(templateId) } })
-      setAll((prev) => [form, ...prev])
-      setFilter("all")
+      /* A new form is live, so show the live tab and load it. */
+      if (filter === "archived") setFilter("all")
+      else await refresh()
       toast.success("Form created")
+      void form
     } catch {
       failed("create the form")
     }
@@ -94,41 +163,57 @@ function DashboardView() {
     },
     async onDuplicate(id) {
       try {
-        const { form } = await api<FormResponse>(`/forms/${id}/duplicate`, { method: "POST" })
-        setAll((prev) => [form, ...prev])
+        await api<FormResponse>(`/forms/${id}/duplicate`, { method: "POST" })
+        if (filter === "archived") setFilter("all")
+        else await refresh()
         toast.success("Form duplicated")
       } catch {
         failed("duplicate the form")
       }
     },
     async onArchive(id) {
-      const src = all.find((f) => f.id === id)
+      const src = items.find((f) => f.id === id)
       if (!src) return
       const archiving = !src.archived
       const change = async (archive: boolean) => {
         const { form } = await api<FormResponse>(`/forms/${id}/${archive ? "archive" : "restore"}`, { method: "POST" })
         replace(form)
+        bumpCounts(archive, -1)
+        bumpCounts(!archive, 1)
       }
       try {
         await change(archiving)
+        await refresh()
         toast(archiving ? "Form archived" : "Form restored", {
-          action: { label: "Undo", onClick: () => void change(!archiving).catch(() => failed("undo")) },
+          action: { label: "Undo", onClick: () => void change(!archiving).then(refresh).catch(() => failed("undo")) },
         })
       } catch {
         failed(archiving ? "archive the form" : "restore the form")
       }
     },
     onDelete(id) {
-      const index = all.findIndex((f) => f.id === id)
+      const index = items.findIndex((f) => f.id === id)
       if (index < 0) return
-      const removed = all[index]
-      setAll((prev) => prev.filter((f) => f.id !== id))
+      const removed = items[index]!
+      setItems((prev) => prev.filter((f) => f.id !== id))
+      setTotal((n) => Math.max(0, n - 1))
+      bumpCounts(removed.archived, -1)
       /* Deleting is permanent, so we wait a few seconds first. Undo cancels it. */
       const timer = setTimeout(() => {
         api(`/forms/${id}`, { method: "DELETE" })
-          .then(() => clearLocalForm(id))
+          .then(() => {
+            clearLocalForm(id)
+            void refresh()
+          })
           .catch(() => {
-            setAll((prev) => (prev.some((f) => f.id === id) ? prev : [removed, ...prev]))
+            setItems((prev) => {
+              if (prev.some((f) => f.id === id)) return prev
+              const copy = [...prev]
+              copy.splice(Math.min(index, copy.length), 0, removed)
+              return copy
+            })
+            setTotal((n) => n + 1)
+            bumpCounts(removed.archived, 1)
             failed("delete the form")
           })
       }, 5000)
@@ -138,21 +223,17 @@ function DashboardView() {
           label: "Undo",
           onClick: () => {
             clearTimeout(timer)
-            setAll((prev) => {
+            setItems((prev) => {
               const copy = [...prev]
               copy.splice(Math.min(index, copy.length), 0, removed)
               return copy
             })
+            setTotal((n) => n + 1)
+            bumpCounts(removed.archived, 1)
           },
         },
       })
     },
-  }
-
-  const live = all.filter((f) => !f.archived)
-  const counts = {
-    all: live.length,
-    archived: all.length - live.length,
   }
 
   /* Show the bottom dock only once the inline search has scrolled out of view. */
@@ -173,20 +254,6 @@ function DashboardView() {
   }, [])
 
   const filterProps = { filter, onFilter: setFilter, counts, sort, onSort: setSort }
-
-  const q = query.trim().toLowerCase()
-  const forms = all
-    .filter((f) =>
-      filter === "archived" ? f.archived : !f.archived
-    )
-    .filter((f) => f.title.toLowerCase().includes(q))
-    .sort((a, b) =>
-      sort === "name"
-        ? a.title.localeCompare(b.title)
-        : sort === "responses"
-          ? b.responses - a.responses
-          : b.updatedAt.localeCompare(a.updatedAt)
-    )
 
   return (
     <div className="min-h-[calc(100svh+8rem)] lg:min-h-0">
@@ -237,15 +304,27 @@ function DashboardView() {
               Try again
             </Button>
           </div>
-        ) : forms.length > 0 ? (
-          <ul className="mt-0 grid gap-3 lg:mt-4 @min-[592px]:grid-cols-2 @min-[592px]:gap-5 @min-[976px]:grid-cols-3 @min-[1232px]:grid-cols-4">
-            {forms.map((form) => (
-              <li key={form.id} className="h-full">
-                <FormCard form={form} actions={actions} />
-              </li>
-            ))}
-          </ul>
-        ) : q ? (
+        ) : items.length > 0 ? (
+          <>
+            <ul className="mt-0 grid gap-3 lg:mt-4 @min-[592px]:grid-cols-2 @min-[592px]:gap-5 @min-[976px]:grid-cols-3 @min-[1232px]:grid-cols-4">
+              {items.map((form) => (
+                <li key={form.id} className="h-full">
+                  <FormCard form={form} actions={actions} />
+                </li>
+              ))}
+            </ul>
+            {nextCursor ? (
+              <div className="mt-6 grid justify-items-center gap-2">
+                <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading…" : "Load more"}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Showing {items.length} of {total}
+                </p>
+              </div>
+            ) : null}
+          </>
+        ) : search ? (
           <p className="mt-16 text-center text-muted-foreground">
             No forms match &ldquo;{query}&rdquo;.
           </p>

@@ -8,7 +8,15 @@ import {
 } from "@/lib/schema"
 
 /* Shapes of what the backend sends for /forms (see server/src/routes/forms.routes.ts). */
-export type FormListResponse = { forms: import("@/lib/api/types").FormSummary[] }
+export type FormListResponse = {
+  forms: import("@/lib/api/types").FormSummary[]
+  /* How many forms match the current search and filters, across all pages. */
+  total: number
+  /* Hand back to get the next page; null on the last page. */
+  nextCursor: string | null
+  /* The two tabs, not affected by the search. */
+  counts: { all: number; archived: number }
+}
 export type FormResponse = { form: import("@/lib/api/types").FormSummary }
 /* Is the form live, which link, and has it been edited since it went live? */
 export type PublishInfo = {
@@ -23,12 +31,20 @@ export type PublishInfo = {
   /* Are AI features switched on for this form? Chosen in the Share tab, off by default. */
   useAI: boolean
 }
+/* When the form stops taking answers, and what people see after they send one (Settings tab). */
+export type FormSettings = {
+  responseLimit: number | null
+  closeAt: string | null
+  thankYouMessage: string | null
+  redirectUrl: string | null
+}
 export type FormWithDocument = {
   form: import("@/lib/api/types").FormSummary
   document: unknown
   version: number
   design: unknown
   publish: PublishInfo
+  settings: FormSettings
 }
 export type PublishResponse = { form: import("@/lib/api/types").FormSummary; publish: PublishInfo }
 
