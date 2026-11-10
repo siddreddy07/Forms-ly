@@ -8,6 +8,7 @@ import { db } from "../config/db.js"
 import { makeSlug } from "../libs/slug.js"
 import { buildAnalytics } from "../libs/analytics.js"
 import { formFilterFields, nextFilterFields, responseColumns } from "../libs/filterFields.js"
+import { formSettingsSchema, settingsChanged, settingsOf, withPublishedSnapshot } from "../libs/formSettings.js"
 import type { Block } from "../libs/answers.js"
 import { decodeCursor, encodeCursor } from "../libs/paging.js"
 import { answerText, csvLine } from "../libs/csv.js"
@@ -110,7 +111,8 @@ function publishInfo(form: Form) {
     slug: form.slug,
     publishedVersion: published ? form.publishedVersion : null,
     publishedAt: published ? form.publishedAt : null,
-    hasChanges: published && form.publishedVersion !== form.version,
+    /* Settings (closing date, and so on) are published too, so they can leave the live form behind. */
+    hasChanges: published && (form.publishedVersion !== form.version || settingsChanged(form)),
     accessCode: form.access === "private" ? form.accessCode : null,
     useAI: form.useAi,
   }
@@ -291,7 +293,7 @@ router.get("/:id", async (req, res) => {
     const [fixed] = await db.update(forms).set({ accessCode: newAccessCode() }).where(eq(forms.id, form.id)).returning()
     if (fixed) form = fixed
   }
-  res.json({ form: summary(form), document: form.draft, version: form.version, design: form.design, publish: publishInfo(form) })
+  res.json({ form: summary(form), document: form.draft, version: form.version, design: form.design, publish: publishInfo(form), settings: settingsOf(form) })
 })
 
 // ---------- PUT /forms/:id : save the document ----------
@@ -375,6 +377,7 @@ const patchSchema = z
     access: z.enum(["public", "private"]),
     useAI: z.boolean(),
     design: designSchema,
+    settings: formSettingsSchema,
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Nothing to change")
@@ -391,13 +394,15 @@ router.patch("/:id", saveLimiter, async (req, res) => {
     return
   }
   // Every switch to private makes a new code (so an old one stops working); going public clears it.
-  const { useAI, ...rest } = body.data
+  const { useAI, settings, ...rest } = body.data
   const changes: Partial<typeof forms.$inferInsert> = { ...rest }
   if (useAI !== undefined) changes.useAi = useAI
+  /* Saving a setting keeps the last published copy, so the form can show it has something to publish. */
+  if (settings !== undefined) changes.settings = withPublishedSnapshot(form, { ...settingsOf(form), ...settings })
   if (body.data.access === "private" && (form.access !== "private" || !form.accessCode)) changes.accessCode = newAccessCode()
   if (body.data.access === "public") changes.accessCode = null
   const [updated] = await db.update(forms).set(changes).where(eq(forms.id, form.id)).returning()
-  res.json({ form: summary(updated!), publish: publishInfo(updated!) })
+  res.json({ form: summary(updated!), publish: publishInfo(updated!), settings: settingsOf(updated!) })
 })
 
 // ---------- POST /forms/:id/publish : make the saved form live ----------
@@ -448,12 +453,23 @@ router.post("/:id/publish", publishLimiter, async (req, res) => {
   const filterFields = await nextFilterFields(form, form.draft)
 
   const updated = await db.transaction(async (tx) => {
+    // Settings are saved separately from the document version, so take the newest copy now and make it the live one.
+    const [latest] = await tx.select({ settings: forms.settings }).from(forms).where(eq(forms.id, form.id))
+    const publishedSettings = settingsOf(latest ?? form)
     // The same saved version always has the same content, so a copy that already exists is the right one
     await tx.insert(formVersions).values({ formId: form.id, version: form.version, document: form.draft }).onConflictDoNothing()
     // Only if nobody saved in between; otherwise nothing changes and we answer with a conflict below
     const [row] = await tx
       .update(forms)
-      .set({ status: "published", publishedVersion: form.version, publishedAt: new Date(), filterFields, useAi: body.data.useAI ?? form.useAi })
+      .set({
+        status: "published",
+        publishedVersion: form.version,
+        publishedAt: new Date(),
+        filterFields,
+        useAi: body.data.useAI ?? form.useAi,
+        /* Merge, so a settings change saved while we were publishing is kept (and stays unpublished). */
+        settings: sql`${forms.settings} || ${JSON.stringify({ published: publishedSettings })}::jsonb`,
+      })
       .where(and(eq(forms.id, form.id), eq(forms.version, form.version)))
       .returning()
     return row
@@ -498,7 +514,8 @@ router.post("/:id/duplicate", async (req, res) => {
       title: `${form.title} (copy)`.slice(0, 200),
       draft: form.draft,
       design: form.design,
-      settings: form.settings,
+      /* A copy starts as a draft, so it has no published settings yet. */
+      settings: settingsOf(form),
       brandKitId: form.brandKitId,
     })
     .returning()

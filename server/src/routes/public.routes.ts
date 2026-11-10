@@ -8,6 +8,7 @@ import { z } from "zod"
 import { db } from "../config/db.js"
 import { isSlug } from "../libs/slug.js"
 import { checkSubmission, LAYOUT_BLOCKS, type Block, type FileRef } from "../libs/answers.js"
+import { closedReason, publishedSettingsOf } from "../libs/formSettings.js"
 import { files, formVersions, forms, responses } from "../schema.js"
 import { checkUploadedFile, PLATFORM_FREE_FILES, platformFilesUsed, storageFor, uploadAuth } from "../services/storage.js"
 
@@ -31,21 +32,37 @@ function isOpen(form: Form) {
   return form.status === "published" && form.publishedVersion !== null && form.archivedAt === null
 }
 
-// The frozen copy made at publish, so edits after publishing do not show until published again
+// The frozen copy made at publish, so edits after publishing do not show until published again.
+// The closing date is part of the published settings for the same reason.
 async function liveBody(form: Form) {
   const [published] = await db
     .select()
     .from(formVersions)
     .where(and(eq(formVersions.formId, form.id), eq(formVersions.version, form.publishedVersion!)))
   if (!published) return { state: "unpublished" as const }
-  return { state: "live" as const, title: form.title, document: published.document, design: form.design, version: published.version }
+  return {
+    state: "live" as const,
+    title: form.title,
+    document: published.document,
+    design: form.design,
+    version: published.version,
+    closesAt: publishedSettingsOf(form).closeAt,
+  }
+}
+
+// The form exists and is live, but its published closing time has passed.
+function closedBody(form: Form) {
+  const settings = publishedSettingsOf(form)
+  const reason = closedReason(settings)
+  return reason ? { state: "closed" as const, reason, title: form.title, closesAt: settings.closeAt } : null
 }
 
 // ---------- GET /public/forms/:slug : the form people fill in ----------
 // 404                       no form has this link
 // { state: "unpublished" }  not open (unpublished, archived)
 // { state: "private" }      the owner made it private
-// { state: "live", title, document, design, version }
+// { state: "closed" }       its published closing date has passed
+// { state: "live", title, document, design, version, closesAt }
 
 router.get("/forms/:slug", publicLimiter, async (req, res) => {
   // Access can change at any moment, so nobody should keep an old answer
@@ -65,6 +82,11 @@ router.get("/forms/:slug", publicLimiter, async (req, res) => {
 
   if (!isOpen(form)) {
     res.json({ state: "unpublished" })
+    return
+  }
+  const closed = closedBody(form)
+  if (closed) {
+    res.json(closed)
     return
   }
   if (form.access === "private") {
@@ -130,6 +152,11 @@ router.post("/forms/:slug/unlock", unlockPerVisitor, unlockPerForm, async (req, 
     res.json({ state: "unpublished" })
     return
   }
+  const closed = closedBody(form)
+  if (closed) {
+    res.json(closed)
+    return
+  }
   if (form.access === "private" && !(form.accessCode && sameCode(form.accessCode, body.data.code))) {
     res.status(403).json({ error: "Wrong code" })
     return
@@ -189,6 +216,7 @@ async function openFor(slug: string, code: string | undefined) {
   const [form] = await db.select().from(forms).where(eq(forms.slug, slug))
   if (!form) return { ok: false as const, error: 404 as const, message: "Form not found" }
   if (!isOpen(form)) return { ok: false as const, error: 409 as const, message: "This form is not open any more." }
+  if (closedBody(form)) return { ok: false as const, error: 409 as const, message: "This form is no longer accepting responses." }
   if (form.access === "private" && !(form.accessCode && code && sameCode(form.accessCode, code))) return { ok: false as const, error: 403 as const, message: "Wrong code" }
   const live = await liveBody(form)
   if (live.state !== "live") return { ok: false as const, error: 409 as const, message: "This form is not open any more." }
