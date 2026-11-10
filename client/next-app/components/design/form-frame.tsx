@@ -1,8 +1,8 @@
 "use client"
 
+import { MadeWith } from "@/components/brand/made-with"
 import { useFormDesign } from "@/components/design/use-form-design"
 import type { FormDesign } from "@/lib/api/mock-design"
-import { brand } from "@/lib/brand"
 import { cn } from "@/lib/utils"
 
 /* The white card the form sits in, with the "Made with" badge below.
@@ -36,7 +36,11 @@ export function FormFrame({
       <div inert={inert} className={cn("rounded-xl border bg-card p-5 sm:p-8", inert && "select-none")}>
         {children}
       </div>
-      {showBadge && <p className="mt-4 text-center text-xs text-muted-foreground">Made with {brand.name}</p>}
+      {showBadge && (
+        <div className="mt-5 flex justify-center">
+          <MadeWith />
+        </div>
+      )}
     </div>
   )
 }
