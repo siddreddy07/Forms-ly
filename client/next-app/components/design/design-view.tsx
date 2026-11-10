@@ -74,7 +74,9 @@ function Controls({
           </Button>
         )}
       </div>
-      <div role="tabpanel" className={cn(compact && "max-h-[30svh] overflow-y-auto pb-1")}>
+      {/* In the phone drawer the panel is always the same height, so switching tabs never makes the drawer jump.
+          Longer tabs scroll inside it. */}
+      <div role="tabpanel" className={cn(compact && "h-[clamp(11rem,32svh,20rem)] overflow-y-auto overscroll-contain pb-1")}>
         {tab === "colour" && <ColourPanel formId={formId} design={design} />}
         {tab === "brand" && <BrandPanel formId={formId} design={design} />}
         {tab === "font" && <FontPanel formId={formId} design={design} />}
@@ -147,7 +149,7 @@ export function DesignView({ formId }: { formId: string }) {
         </Button>
       </div>
 
-      <section aria-label="Preview" className={cn("min-w-0", open && "max-lg:pb-[48svh]")}>
+      <section aria-label="Preview" className={cn("min-w-0", open && "max-lg:pb-[calc(clamp(11rem,32svh,20rem)_+_8rem)]")}>
         <div className="mb-2 hidden items-center justify-between lg:flex">
           <p className="text-xs font-medium text-muted-foreground">Preview</p>
           <ViewToggle view={view} onChange={setView} />
