@@ -14,6 +14,7 @@ import { decodeCursor, encodeCursor } from "../libs/paging.js"
 import { answerText, csvLine } from "../libs/csv.js"
 import { parseResponseFilter, responseFilterWhere, responseSearchWhere } from "../libs/responseFilter.js"
 import { files, formVersions, forms, responses, type Form } from "../schema.js"
+import { bump, cacheKeys, cached, formChanged, responsesChanged, TTL, version } from "../services/cache.js"
 import { deleteStoredFile, ownStorage, platformStorage, privateFileUrl } from "../services/storage.js"
 
 const router = Router()
@@ -190,67 +191,78 @@ router.get("/", async (req, res) => {
   }
 
   const userId = req.user!.id
-  const filter = and(
-    eq(forms.ownerId, userId),
-    archived === "all" ? undefined : archived === "true" ? isNotNull(forms.archivedAt) : isNull(forms.archivedAt),
-    status ? eq(forms.status, status) : undefined,
-    q ? ilike(forms.title, likeTerm(q)) : undefined
+  const userVersion = await version(cacheKeys.userVersion(userId))
+  const cacheKey = cacheKeys.formList(
+    userId,
+    userVersion,
+    JSON.stringify([archived ?? "", status ?? "", q ?? "", sort, limit, query.data.cursor ?? ""])
   )
 
-  // How many responses each form has. A subquery, so the list itself needs no join or grouping.
-  // "forms"."id" is written out because the list's own columns are not table-qualified in a single-table query, and
-  // the subquery would otherwise read responses.id (which also exists).
-  const responseCount = sql<number>`(select count(*)::int from ${responses} where ${responses.formId} = "forms"."id")`
+  const payload = await cached(cacheKey, TTL.formList, async () => {
+    const filter = and(
+      eq(forms.ownerId, userId),
+      archived === "all" ? undefined : archived === "true" ? isNotNull(forms.archivedAt) : isNull(forms.archivedAt),
+      status ? eq(forms.status, status) : undefined,
+      q ? ilike(forms.title, likeTerm(q)) : undefined
+    )
 
-  // The last row of the previous page. The id breaks ties, so two forms edited in the same second still page correctly.
-  let after: SQL | undefined
-  if (cursor) {
-    if (sort === "name") after = sql`(lower(${forms.title}), ${forms.id}) > (lower(${String(cursor.v)}), ${cursor.id}::uuid)`
-    else if (sort === "responses") after = sql`(${responseCount}, ${forms.id}) < (${Number(cursor.v)}, ${cursor.id}::uuid)`
-    else {
-      const at = new Date(String(cursor.v))
-      after = Number.isNaN(at.getTime()) ? sql`false` : sql`(${forms.updatedAt}, ${forms.id}) < (${at}, ${cursor.id}::uuid)`
+    // How many responses each form has. A subquery, so the list itself needs no join or grouping.
+    // "forms"."id" is written out because the list's own columns are not table-qualified in a single-table query, and
+    // the subquery would otherwise read responses.id (which also exists).
+    const responseCount = sql<number>`(select count(*)::int from ${responses} where ${responses.formId} = "forms"."id")`
+
+    // The last row of the previous page. The id breaks ties, so two forms edited in the same second still page correctly.
+    let after: SQL | undefined
+    if (cursor) {
+      if (sort === "name") after = sql`(lower(${forms.title}), ${forms.id}) > (lower(${String(cursor.v)}), ${cursor.id}::uuid)`
+      else if (sort === "responses") after = sql`(${responseCount}, ${forms.id}) < (${Number(cursor.v)}, ${cursor.id}::uuid)`
+      else {
+        const at = new Date(String(cursor.v))
+        after = Number.isNaN(at.getTime()) ? sql`false` : sql`(${forms.updatedAt}, ${forms.id}) < (${at}, ${cursor.id}::uuid)`
+      }
     }
-  }
 
-  const order =
-    sort === "name"
-      ? [asc(sql`lower(${forms.title})`), asc(forms.id)]
-      : sort === "responses"
-        ? [desc(responseCount), desc(forms.id)]
-        : [desc(forms.updatedAt), desc(forms.id)]
+    const order =
+      sort === "name"
+        ? [asc(sql`lower(${forms.title})`), asc(forms.id)]
+        : sort === "responses"
+          ? [desc(responseCount), desc(forms.id)]
+          : [desc(forms.updatedAt), desc(forms.id)]
 
-  const rows = await db
-    .select({ form: forms, responseCount })
-    .from(forms)
-    .where(and(filter, after))
-    .orderBy(...order)
-    // One extra row tells us whether there is another page, without a second query
-    .limit(limit + 1)
+    const rows = await db
+      .select({ form: forms, responseCount })
+      .from(forms)
+      .where(and(filter, after))
+      .orderBy(...order)
+      // One extra row tells us whether there is another page, without a second query
+      .limit(limit + 1)
 
-  const page = rows.slice(0, limit)
-  const last = page.at(-1)
-  const nextCursor =
-    rows.length > limit && last
-      ? encodeCursor({
-          s: sort,
-          v: sort === "recent" ? last.form.updatedAt.toISOString() : sort === "name" ? last.form.title : last.responseCount,
-          id: last.form.id,
-        })
-      : null
+    const page = rows.slice(0, limit)
+    const last = page.at(-1)
+    const nextCursor =
+      rows.length > limit && last
+        ? encodeCursor({
+            s: sort,
+            v: sort === "recent" ? last.form.updatedAt.toISOString() : sort === "name" ? last.form.title : last.responseCount,
+            id: last.form.id,
+          })
+        : null
 
-  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(forms).where(filter)
+    const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(forms).where(filter)
 
-  // The two tab counts. They ignore the search and status on purpose, so the tabs always show the real totals.
-  const [counts] = await db
-    .select({
-      all: sql<number>`count(*) filter (where ${forms.archivedAt} is null)`.mapWith(Number),
-      archived: sql<number>`count(*) filter (where ${forms.archivedAt} is not null)`.mapWith(Number),
-    })
-    .from(forms)
-    .where(eq(forms.ownerId, userId))
+    // The two tab counts. They ignore the search and status on purpose, so the tabs always show the real totals.
+    const [counts] = await db
+      .select({
+        all: sql<number>`count(*) filter (where ${forms.archivedAt} is null)`.mapWith(Number),
+        archived: sql<number>`count(*) filter (where ${forms.archivedAt} is not null)`.mapWith(Number),
+      })
+      .from(forms)
+      .where(eq(forms.ownerId, userId))
 
-  res.json({ forms: page.map((r) => summary(r.form, r.responseCount)), total, nextCursor, counts: counts ?? { all: 0, archived: 0 } })
+    return { forms: page.map((r) => summary(r.form, r.responseCount)), total, nextCursor, counts: counts ?? { all: 0, archived: 0 } }
+  })
+
+  res.json(payload)
 })
 
 // ---------- POST /forms : create a form ----------
@@ -278,22 +290,41 @@ router.post("/", async (req, res) => {
     })
     .returning()
 
+  await bump(cacheKeys.userVersion(req.user!.id))
   res.status(201).json({ form: summary(form!) })
 })
 
 // ---------- GET /forms/:id : one form with its document ----------
 
 router.get("/:id", async (req, res) => {
-  let form = await findOwnForm(req.user!.id, req.params.id)
-  if (!form) {
+  const userId = req.user!.id
+  const id = String(req.params.id)
+  if (!idSchema.safeParse(id).success) {
     res.status(404).json({ error: "Form not found" })
     return
   }
-  if (form.access === "private" && !form.accessCode) {
-    const [fixed] = await db.update(forms).set({ accessCode: newAccessCode() }).where(eq(forms.id, form.id)).returning()
-    if (fixed) form = fixed
+  const formVersion = await version(cacheKeys.formVersion(id))
+  const payload = await cached(cacheKeys.form(userId, id, formVersion), TTL.form, async () => {
+    let form = await findOwnForm(userId, id)
+    if (!form) return null
+    if (form.access === "private" && !form.accessCode) {
+      const [fixed] = await db.update(forms).set({ accessCode: newAccessCode() }).where(eq(forms.id, form.id)).returning()
+      if (fixed) form = fixed
+    }
+    return {
+      form: summary(form),
+      document: form.draft,
+      version: form.version,
+      design: form.design,
+      publish: publishInfo(form),
+      settings: settingsOf(form),
+    }
+  })
+  if (!payload) {
+    res.status(404).json({ error: "Form not found" })
+    return
   }
-  res.json({ form: summary(form), document: form.draft, version: form.version, design: form.design, publish: publishInfo(form), settings: settingsOf(form) })
+  res.json(payload)
 })
 
 // ---------- PUT /forms/:id : save the document ----------
@@ -350,6 +381,7 @@ router.put("/:id", saveLimiter, async (req, res) => {
     : []
 
   if (saved) {
+    await formChanged(saved.id, userId, saved.slug)
     res.json({ version: saved.version, updatedAt: saved.updatedAt, title: saved.title })
     return
   }
@@ -402,6 +434,7 @@ router.patch("/:id", saveLimiter, async (req, res) => {
   if (body.data.access === "private" && (form.access !== "private" || !form.accessCode)) changes.accessCode = newAccessCode()
   if (body.data.access === "public") changes.accessCode = null
   const [updated] = await db.update(forms).set(changes).where(eq(forms.id, form.id)).returning()
+  await formChanged(updated!.id, req.user!.id, updated!.slug)
   res.json({ form: summary(updated!), publish: publishInfo(updated!), settings: settingsOf(updated!) })
 })
 
@@ -479,6 +512,7 @@ router.post("/:id/publish", publishLimiter, async (req, res) => {
     res.status(409).json({ document: latest?.draft, version: latest?.version, updatedAt: latest?.updatedAt })
     return
   }
+  await formChanged(updated.id, req.user!.id, updated.slug)
   res.json({ form: summary(updated), publish: publishInfo(updated) })
 })
 
@@ -496,6 +530,7 @@ router.post("/:id/unpublish", publishLimiter, async (req, res) => {
     .set({ status: "draft", publishedVersion: null, publishedAt: null })
     .where(eq(forms.id, form.id))
     .returning()
+  await formChanged(updated!.id, req.user!.id, updated!.slug)
   res.json({ form: summary(updated!), publish: publishInfo(updated!) })
 })
 
@@ -519,6 +554,7 @@ router.post("/:id/duplicate", async (req, res) => {
       brandKitId: form.brandKitId,
     })
     .returning()
+  await bump(cacheKeys.userVersion(req.user!.id))
   res.status(201).json({ form: summary(copy!) })
 })
 
@@ -536,6 +572,7 @@ for (const action of ["archive", "restore"] as const) {
       .set({ archivedAt: action === "archive" ? new Date() : null })
       .where(eq(forms.id, form.id))
       .returning()
+    await formChanged(updated!.id, req.user!.id, updated!.slug)
     res.json({ form: summary(updated!) })
   })
 }
@@ -549,6 +586,7 @@ router.delete("/:id", async (req, res) => {
     return
   }
   await db.delete(forms).where(eq(forms.id, form.id))
+  await formChanged(form.id, req.user!.id, form.slug)
   res.status(204).end()
 })
 
@@ -577,8 +615,9 @@ async function responsesScope(form: Form, q: string | undefined, filterRaw: unkn
 }
 
 router.get("/:id/responses", async (req, res) => {
-  const form = await findOwnForm(req.user!.id, String(req.params.id))
-  if (!form) {
+  const userId = req.user!.id
+  const formId = String(req.params.id)
+  if (!idSchema.safeParse(formId).success) {
     res.status(404).json({ error: "Form not found" })
     return
   }
@@ -588,8 +627,7 @@ router.get("/:id/responses", async (req, res) => {
     return
   }
   const { limit, q } = query.data
-  const scope = await responsesScope(form, q, query.data.filter)
-  if (!scope.ok) {
+  if (parseResponseFilter(query.data.filter) === null) {
     res.status(400).json({ error: "Invalid filter" })
     return
   }
@@ -599,73 +637,97 @@ router.get("/:id/responses", async (req, res) => {
     res.status(400).json({ error: "Invalid cursor" })
     return
   }
-  const after = cursor
-    ? sql`(${responses.submittedAt}, ${responses.id}) < (${new Date(String(cursor.v))}, ${cursor.id}::uuid)`
-    : undefined
 
-  const rows = await db
-    .select({
-      id: responses.id,
-      formVersion: responses.formVersion,
-      fields: responses.fields,
-      answers: responses.answers,
-      durationMs: responses.durationMs,
-      device: responses.device,
-      submittedAt: responses.submittedAt,
+  const formVersion = await version(cacheKeys.formVersion(formId))
+  const responsesVersion = await version(cacheKeys.responsesVersion(formId))
+  const cacheKey = cacheKeys.responses(
+    userId,
+    formId,
+    formVersion,
+    responsesVersion,
+    JSON.stringify([limit, query.data.cursor ?? "", q ?? "", query.data.filter ?? ""])
+  )
+
+  const payload = await cached(cacheKey, TTL.responses, async () => {
+    const form = await findOwnForm(userId, formId)
+    if (!form) return null
+    const scope = await responsesScope(form, q, query.data.filter)
+    if (!scope.ok) return null
+
+    const after = cursor
+      ? sql`(${responses.submittedAt}, ${responses.id}) < (${new Date(String(cursor.v))}, ${cursor.id}::uuid)`
+      : undefined
+
+    const rows = await db
+      .select({
+        id: responses.id,
+        formVersion: responses.formVersion,
+        fields: responses.fields,
+        answers: responses.answers,
+        durationMs: responses.durationMs,
+        device: responses.device,
+        submittedAt: responses.submittedAt,
+      })
+      .from(responses)
+      .where(and(scope.where, after))
+      .orderBy(desc(responses.submittedAt), desc(responses.id))
+      // One extra row tells us whether there is another page
+      .limit(limit + 1)
+
+    const page = rows.slice(0, limit)
+    const last = page.at(-1)
+    const nextCursor = rows.length > limit && last ? encodeCursor({ s: "responses", v: last.submittedAt.toISOString(), id: last.id }) : null
+
+    const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(scope.where)
+    const [{ total: allTotal } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
+
+    // Links for the files, keyed by the file's id at the storage
+    const links = new Map<string, string>()
+    if (page.length > 0) {
+      const stored = await db
+        .select()
+        .from(files)
+        .where(inArray(files.responseId, page.map((r) => r.id)))
+      if (stored.length > 0) {
+        const platform = platformStorage()
+        const own = stored.some((f) => !f.onPlatform) ? await ownStorage(form.ownerId) : null
+        for (const f of stored) {
+          const storage = f.onPlatform ? platform : own
+          if (storage) links.set(f.providerRef, privateFileUrl(storage, f.filePath))
+        }
+      }
+    }
+
+    const items = page.map((r) => {
+      const answers: Record<string, unknown> = { ...r.answers }
+      for (const [key, value] of Object.entries(answers)) {
+        if (Array.isArray(value) && value.some((v) => v && typeof v === "object" && "fileId" in v)) {
+          answers[key] = value.map((v) => {
+            const file = v as { fileId: string; name: string; size: number }
+            return { name: file.name, size: file.size, url: links.get(file.fileId) ?? null }
+          })
+        }
+      }
+      return { ...r, answers, formId: form.id }
     })
-    .from(responses)
-    .where(and(scope.where, after))
-    .orderBy(desc(responses.submittedAt), desc(responses.id))
-    // One extra row tells us whether there is another page
-    .limit(limit + 1)
 
-  const page = rows.slice(0, limit)
-  const last = page.at(-1)
-  const nextCursor = rows.length > limit && last ? encodeCursor({ s: "responses", v: last.submittedAt.toISOString(), id: last.id }) : null
-
-  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(scope.where)
-  const [{ total: allTotal } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
-
-  // Links for the files, keyed by the file's id at the storage
-  const links = new Map<string, string>()
-  if (page.length > 0) {
-    const stored = await db
-      .select()
-      .from(files)
-      .where(inArray(files.responseId, page.map((r) => r.id)))
-    if (stored.length > 0) {
-      const platform = platformStorage()
-      const own = stored.some((f) => !f.onPlatform) ? await ownStorage(form.ownerId) : null
-      for (const f of stored) {
-        const storage = f.onPlatform ? platform : own
-        if (storage) links.set(f.providerRef, privateFileUrl(storage, f.filePath))
-      }
+    return {
+      items,
+      total,
+      allTotal,
+      nextCursor,
+      columns: scope.columns,
+      publishedAt: form.publishedAt,
+      createdAt: form.createdAt,
+      filterFields: scope.filterFields,
     }
+  })
+
+  if (!payload) {
+    res.status(404).json({ error: "Form not found" })
+    return
   }
-
-  const items = page.map((r) => {
-    const answers: Record<string, unknown> = { ...r.answers }
-    for (const [key, value] of Object.entries(answers)) {
-      if (Array.isArray(value) && value.some((v) => v && typeof v === "object" && "fileId" in v)) {
-        answers[key] = value.map((v) => {
-          const file = v as { fileId: string; name: string; size: number }
-          return { name: file.name, size: file.size, url: links.get(file.fileId) ?? null }
-        })
-      }
-    }
-    return { ...r, answers, formId: form.id }
-  })
-
-  res.json({
-    items,
-    total,
-    allTotal,
-    nextCursor,
-    columns: scope.columns,
-    publishedAt: form.publishedAt,
-    createdAt: form.createdAt,
-    filterFields: scope.filterFields,
-  })
+  res.json(payload)
 })
 
 // ---------- GET /forms/:id/responses/export.csv : every response, ignoring pages ----------
@@ -758,35 +820,53 @@ const analyticsQuery = z.object({
 
 router.get("/:id/analytics", async (req, res) => {
   const query = analyticsQuery.safeParse(req.query)
-  const form = query.success ? await findOwnForm(req.user!.id, req.params.id) : undefined
-  if (!query.success || !form) {
-    res.status(form ? 400 : 404).json({ error: form ? "Invalid request" : "Form not found" })
+  if (!query.success) {
+    res.status(400).json({ error: "Invalid request" })
+    return
+  }
+  const userId = req.user!.id
+  const formId = String(req.params.id)
+  if (!idSchema.safeParse(formId).success) {
+    res.status(404).json({ error: "Form not found" })
     return
   }
 
-  // The questions as they are now: the live copy if there is one, otherwise the draft
-  let document: unknown = form.draft
-  if (form.publishedVersion !== null) {
-    const [live] = await db
-      .select({ document: formVersions.document })
-      .from(formVersions)
-      .where(and(eq(formVersions.formId, form.id), eq(formVersions.version, form.publishedVersion)))
-    if (live) document = live.document
+  const formVersion = await version(cacheKeys.formVersion(formId))
+  const responsesVersion = await version(cacheKeys.responsesVersion(formId))
+  const cacheKey = cacheKeys.analytics(userId, formId, formVersion, responsesVersion, JSON.stringify([query.data.range, query.data.tz]))
+
+  const payload = await cached(cacheKey, TTL.analytics, async () => {
+    const form = await findOwnForm(userId, formId)
+    if (!form) return null
+
+    // The questions as they are now: the live copy if there is one, otherwise the draft
+    let document: unknown = form.draft
+    if (form.publishedVersion !== null) {
+      const [live] = await db
+        .select({ document: formVersions.document })
+        .from(formVersions)
+        .where(and(eq(formVersions.formId, form.id), eq(formVersions.version, form.publishedVersion)))
+      if (live) document = live.document
+    }
+    const steps = (document as { steps?: { blocks?: unknown[] }[] }).steps ?? []
+    const blocks = steps.flatMap((st) => (Array.isArray(st.blocks) ? st.blocks : [])).filter((b): b is Block => !!b && typeof (b as { id?: unknown }).id === "string")
+
+    const rows = await db
+      .select({ answers: responses.answers, durationMs: responses.durationMs, submittedAt: responses.submittedAt, device: responses.device })
+      .from(responses)
+      .where(eq(responses.formId, form.id))
+      .orderBy(desc(responses.submittedAt))
+      .limit(ANALYTICS_CAP)
+    const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
+
+    return buildAnalytics({ rows, blocks, range: query.data.range, tzOffsetMin: query.data.tz, now: Date.now(), publishedAt: form.publishedAt, total })
+  })
+
+  if (!payload) {
+    res.status(404).json({ error: "Form not found" })
+    return
   }
-  const steps = (document as { steps?: { blocks?: unknown[] }[] }).steps ?? []
-  const blocks = steps.flatMap((st) => (Array.isArray(st.blocks) ? st.blocks : [])).filter((b): b is Block => !!b && typeof (b as { id?: unknown }).id === "string")
-
-  const rows = await db
-    .select({ answers: responses.answers, durationMs: responses.durationMs, submittedAt: responses.submittedAt, device: responses.device })
-    .from(responses)
-    .where(eq(responses.formId, form.id))
-    .orderBy(desc(responses.submittedAt))
-    .limit(ANALYTICS_CAP)
-  const [{ total } = { total: 0 }] = await db.select({ total: count() }).from(responses).where(eq(responses.formId, form.id))
-
-  res.json(
-    buildAnalytics({ rows, blocks, range: query.data.range, tzOffsetMin: query.data.tz, now: Date.now(), publishedAt: form.publishedAt, total })
-  )
+  res.json(payload)
 })
 
 // ---------- DELETE /forms/:id/responses/:rid : remove one response and its files ----------
@@ -823,6 +903,7 @@ router.delete("/:id/responses/:rid", async (req, res) => {
     }
   }
   await db.delete(responses).where(eq(responses.id, response.id))
+  await responsesChanged(form.id, form.ownerId)
   res.status(204).end()
 })
 

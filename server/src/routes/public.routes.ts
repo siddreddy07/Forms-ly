@@ -10,6 +10,7 @@ import { isSlug } from "../libs/slug.js"
 import { checkSubmission, LAYOUT_BLOCKS, type Block, type FileRef } from "../libs/answers.js"
 import { closedReason, publishedSettingsOf } from "../libs/formSettings.js"
 import { files, formVersions, forms, responses } from "../schema.js"
+import { cacheKeys, cached, responsesChanged, TTL } from "../services/cache.js"
 import { checkUploadedFile, PLATFORM_FREE_FILES, platformFilesUsed, storageFor, uploadAuth } from "../services/storage.js"
 
 // Everything here is open to anyone, with no sign-in. So it only ever sends what a person filling in the form
@@ -65,7 +66,8 @@ function closedBody(form: Form) {
 // { state: "live", title, document, design, version, closesAt }
 
 router.get("/forms/:slug", publicLimiter, async (req, res) => {
-  // Access can change at any moment, so nobody should keep an old answer
+  // Access can change at any moment, so nobody should keep an old answer. A short shared cache in Redis is fine:
+  // publishing, settings changes and archiving delete it, and the submit route checks the closing date again.
   res.set("Cache-Control", "no-store")
 
   const slug = String(req.params.slug).toLowerCase()
@@ -74,26 +76,22 @@ router.get("/forms/:slug", publicLimiter, async (req, res) => {
     return
   }
 
-  const [form] = await db.select().from(forms).where(eq(forms.slug, slug))
-  if (!form) {
+  const payload = await cached(cacheKeys.publicForm(slug), TTL.publicForm, async () => {
+    const [form] = await db.select().from(forms).where(eq(forms.slug, slug))
+    if (!form) return null
+
+    if (!isOpen(form)) return { state: "unpublished" as const }
+    const closed = closedBody(form)
+    if (closed) return closed
+    if (form.access === "private") return { state: "private" as const }
+    return await liveBody(form)
+  })
+
+  if (!payload) {
     res.status(404).json({ error: "Form not found" })
     return
   }
-
-  if (!isOpen(form)) {
-    res.json({ state: "unpublished" })
-    return
-  }
-  const closed = closedBody(form)
-  if (closed) {
-    res.json(closed)
-    return
-  }
-  if (form.access === "private") {
-    res.json({ state: "private" })
-    return
-  }
-  res.json(await liveBody(form))
+  res.json(payload)
 })
 
 // ---------- POST /public/forms/:slug/unlock : open a private form with its 4 digit code ----------
@@ -322,6 +320,7 @@ router.post("/forms/:slug/responses", submitPerVisitor, submitPerForm, async (re
     }
   }
 
+  await responsesChanged(form.id, form.ownerId)
   res.status(201).json({ id: saved!.id })
 })
 
