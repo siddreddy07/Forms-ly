@@ -22,7 +22,7 @@ export function SaveStatus({ formId, className }: { formId: string; className?: 
     state.status === "saving"
       ? "Saving..."
       : state.status === "error"
-        ? "Couldn't save. Check your storage and try again."
+        ? "Couldn't save. We'll keep trying."
         : state.status === "saved"
           ? `Saved${time ? ` at ${time}` : ""}`
           : "Changes save automatically"

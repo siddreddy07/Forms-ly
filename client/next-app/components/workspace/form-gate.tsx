@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/skeletons/skeleton"
 import { Button } from "@/components/ui/button"
 import { ApiError, useApi } from "@/lib/api/http"
 import type { FormWithDocument } from "@/lib/api/forms"
+import { flushDesign, hydrateDesign, setDesignSaver, type DesignSaveResult } from "@/lib/api/mock-design"
 import { cacheServerRecord } from "@/lib/api/mock-server"
 import type { FormSummary } from "@/lib/api/types"
 import { parseForm, type FormDocument } from "@/lib/schema"
@@ -62,6 +63,7 @@ export function FormGate({ formId, children }: { formId: string; children: React
         if (cancelled) return
         const doc = parseForm(data.document)
         cacheServerRecord(formId, doc, data.version, data.form.updatedAt)
+        hydrateDesign(formId, data.design)
         setLoaded({ form: data.form, doc, version: data.version, updatedAt: data.form.updatedAt })
       } catch (e) {
         if (!cancelled) setError(e instanceof ApiError && e.status === 404 ? "missing" : "failed")
@@ -71,6 +73,36 @@ export function FormGate({ formId, children }: { formId: string; children: React
       cancelled = true
     }
   }, [api, formId, attempt])
+
+  /* The Design tab saves its changes through here. It sends them a moment after the last change (see mock-design.ts). */
+  React.useEffect(() => {
+    setDesignSaver(async (id, design, keepalive): Promise<DesignSaveResult> => {
+      try {
+        await api(`/forms/${id}`, { method: "PATCH", body: { design }, keepalive })
+        return { ok: true }
+      } catch (e) {
+        if (e instanceof ApiError) {
+          /* Too many requests or a server problem: try again later. Other errors will not fix themselves. */
+          if (e.status === 429 || e.status >= 500 || e.status === 408) return { ok: false, retry: true, waitSeconds: e.retryAfter }
+          return { ok: false, retry: false }
+        }
+        return { ok: false, retry: true, waitSeconds: null }
+      }
+    })
+    /* The tab is hidden or closing: send any waiting changes now. */
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flushDesign(formId)
+    }
+    const onPageHide = () => flushDesign(formId)
+    document.addEventListener("visibilitychange", onHide)
+    window.addEventListener("pagehide", onPageHide)
+    return () => {
+      document.removeEventListener("visibilitychange", onHide)
+      window.removeEventListener("pagehide", onPageHide)
+      flushDesign(formId)
+      setDesignSaver(null)
+    }
+  }, [api, formId])
 
   const commit = React.useCallback<Actions["commit"]>(
     (next) => {

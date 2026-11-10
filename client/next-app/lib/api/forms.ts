@@ -9,7 +9,7 @@ import {
 /* Shapes of what the backend sends for /forms (see server/src/routes/forms.routes.ts). */
 export type FormListResponse = { forms: import("@/lib/api/types").FormSummary[] }
 export type FormResponse = { form: import("@/lib/api/types").FormSummary }
-export type FormWithDocument = { form: import("@/lib/api/types").FormSummary; document: unknown; version: number }
+export type FormWithDocument = { form: import("@/lib/api/types").FormSummary; document: unknown; version: number; design: unknown }
 export type SaveResponse = { version: number; updatedAt: string; title?: string }
 export type ConflictResponse = { document: unknown; version: number; updatedAt: string }
 

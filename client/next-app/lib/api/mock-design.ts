@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react"
 
-/* Stand-in for the backend's form design, kept in this browser like mock-meta.ts.
-   Real API to follow: PATCH /forms/:id { design }
+/* The form's design (Design tab). The UI reads it from this browser's storage so every change shows instantly,
+   and this file also sends it to the backend (PATCH /forms/:id { design }) a moment after you stop changing it.
+   The backend copy is the one that lasts: it is loaded back in when a form opens (see hydrateDesign).
    Free: page background colour. Pro: everything else (accent colour, logo, font, corners, width,
    thank-you page, badge). The Pro parts are only applied when the account is Pro. */
 
@@ -94,6 +95,16 @@ export const defaultDesign: FormDesign = {
 }
 
 export const designKey = (formId: string) => `mock-server:design:${formId}`
+/* Present while this browser has design changes the backend has not confirmed, even after a reload. */
+const unsentKey = (formId: string) => `mock-server:design-unsent:${formId}`
+const setUnsent = (formId: string, on: boolean) => {
+  try {
+    if (on) window.localStorage.setItem(unsentKey(formId), "1")
+    else window.localStorage.removeItem(unsentKey(formId))
+  } catch {
+    /* storage unavailable */
+  }
+}
 
 export function backgroundCss(design: FormDesign): string | undefined {
   const b = design.background
@@ -199,13 +210,22 @@ export function parseDesign(raw: string | null): FormDesign {
   }
 }
 
-/* Save status, so the Design tab can show "Saving" and "Saved". The mock saves instantly; the short
-   "saving" pause stands in for the network call the real backend will make (debounced PATCH). */
+/* ---------- Saving to the backend ----------
+   Every change is a database write, so changes are sent in bursts: 1.5 seconds after you stop, and at least every
+   10 seconds while you keep going. One request per form at a time; changes made during a save go in the next one.
+   A failed save retries after 3s, 6s, 12s... up to 60s. The page registers how to send a request with setDesignSaver. */
+const IDLE_MS = 1500
+const MAX_WAIT_MS = 10000
+const RETRY_BASE_MS = 3000
+const RETRY_MAX_MS = 60000
+
+export type DesignSaveResult = { ok: true } | { ok: false; retry: true; waitSeconds: number | null } | { ok: false; retry: false }
+type Saver = (formId: string, design: FormDesign, keepalive: boolean) => Promise<DesignSaveResult>
+
 export type SaveState = { status: "idle" | "saving" | "saved" | "error"; savedAt: number | null }
 const idle: SaveState = { status: "idle", savedAt: null }
 const saveStates = new Map<string, SaveState>()
 const saveListeners = new Set<() => void>()
-const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 export const subscribeSaveState = (cb: () => void) => {
   saveListeners.add(cb)
@@ -220,6 +240,109 @@ function setSaveState(formId: string, state: SaveState) {
   saveListeners.forEach((l) => l())
 }
 
+let saver: Saver | null = null
+/* Forms with changes the backend has not confirmed yet. */
+const pending = new Set<string>()
+const running = new Set<string>()
+const failures = new Map<string, number>()
+const idleTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const maxTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const retryTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+function clearTimers(formId: string) {
+  for (const timers of [idleTimers, maxTimers, retryTimers]) {
+    clearTimeout(timers.get(formId))
+    timers.delete(formId)
+  }
+}
+
+async function runSave(formId: string, keepalive = false) {
+  clearTimers(formId)
+  if (!saver || !pending.has(formId) || running.has(formId)) return
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return
+
+  running.add(formId)
+  pending.delete(formId)
+  setSaveState(formId, { status: "saving", savedAt: getSaveState(formId).savedAt })
+  let result: DesignSaveResult
+  try {
+    result = await saver(formId, parseDesign(window.localStorage.getItem(designKey(formId))), keepalive)
+  } catch {
+    result = { ok: false, retry: true, waitSeconds: null }
+  }
+  running.delete(formId)
+
+  if (result.ok) {
+    failures.delete(formId)
+    /* Changed again while saving: send the newest in the next save. */
+    if (pending.has(formId)) scheduleSave(formId)
+    else {
+      setUnsent(formId, false)
+      setSaveState(formId, { status: "saved", savedAt: Date.now() })
+    }
+    return
+  }
+
+  pending.add(formId)
+  setSaveState(formId, { status: "error", savedAt: getSaveState(formId).savedAt })
+  if (result.retry) {
+    const n = (failures.get(formId) ?? 0) + 1
+    failures.set(formId, n)
+    const wait = result.waitSeconds ? result.waitSeconds * 1000 : Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** (n - 1)) + Math.random() * 1000
+    retryTimers.set(formId, setTimeout(() => void runSave(formId), wait))
+  }
+  /* If the backend refused the design (not retry), the next change tries again. */
+}
+
+function scheduleSave(formId: string) {
+  clearTimeout(idleTimers.get(formId))
+  clearTimeout(retryTimers.get(formId))
+  idleTimers.set(formId, setTimeout(() => void runSave(formId), IDLE_MS))
+  if (!maxTimers.has(formId)) maxTimers.set(formId, setTimeout(() => void runSave(formId), MAX_WAIT_MS))
+}
+
+/* The page that knows how to talk to the backend registers itself here, and removes itself when it goes away. */
+export function setDesignSaver(next: Saver | null) {
+  saver = next
+  if (next) pending.forEach((id) => scheduleSave(id))
+}
+
+/* Send any waiting changes right now (the page is being closed, or you are leaving the form). */
+export function flushDesign(formId: string) {
+  void runSave(formId, true)
+}
+
+if (typeof window !== "undefined") {
+  /* Back online: send whatever piled up while offline. */
+  window.addEventListener("online", () => pending.forEach((id) => void runSave(id)))
+}
+
+/* When a form opens: the backend copy replaces the one in this browser, unless this browser has changes the
+   backend has not got yet. A form whose backend design is still empty adopts the one saved in this browser. */
+export function hydrateDesign(formId: string, fromServer: unknown) {
+  if (pending.has(formId) || running.has(formId)) return
+  /* Changes from an earlier visit that never reached the backend: keep them and send them now. */
+  if (window.localStorage.getItem(unsentKey(formId))) {
+    pending.add(formId)
+    scheduleSave(formId)
+    return
+  }
+  const serverIsEmpty = !fromServer || (typeof fromServer === "object" && Object.keys(fromServer).length === 0)
+  try {
+    if (serverIsEmpty) {
+      if (window.localStorage.getItem(designKey(formId))) {
+        pending.add(formId)
+        scheduleSave(formId)
+      }
+      return
+    }
+    window.localStorage.setItem(designKey(formId), JSON.stringify(parseDesign(JSON.stringify(fromServer))))
+    listeners.forEach((l) => l())
+  } catch {
+    /* storage unavailable: the page just shows defaults */
+  }
+}
+
 function update(formId: string, patch: Partial<FormDesign>) {
   try {
     const now = parseDesign(window.localStorage.getItem(designKey(formId)))
@@ -232,12 +355,10 @@ function update(formId: string, patch: Partial<FormDesign>) {
   }
   listeners.forEach((l) => l())
 
+  pending.add(formId)
+  setUnsent(formId, true)
   setSaveState(formId, { status: "saving", savedAt: getSaveState(formId).savedAt })
-  clearTimeout(saveTimers.get(formId))
-  saveTimers.set(
-    formId,
-    setTimeout(() => setSaveState(formId, { status: "saved", savedAt: Date.now() }), 500)
-  )
+  scheduleSave(formId)
 }
 
 export const setBackground = (formId: string, background: FormDesign["background"]) => update(formId, { background })

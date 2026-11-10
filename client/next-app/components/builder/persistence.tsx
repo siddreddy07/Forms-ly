@@ -142,7 +142,7 @@ export function PersistenceProvider({ formId, initial, children }: { formId: str
     if (!ready.current || restoring.current || paused.current) return
     if (store.getState().doc === savedDoc.current) return
     /* Offline: the local backup keeps the work safe, and we try again when the connection returns. */
-    if (typeof navigator !== "undefined" && !navigator.onLine) return
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return
     void saveRef.current({ silent: true })
   }, [clearAutosave, store])
 
