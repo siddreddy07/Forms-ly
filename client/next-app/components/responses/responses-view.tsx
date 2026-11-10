@@ -151,7 +151,7 @@ export function ResponsesView({ formId }: { formId: string }) {
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
             <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={state.total} />
-            <Button variant="outline" size="lg" onClick={exportCsv} disabled={exporting}>
+            <Button variant="outline" className={"text-sm md:text-lg"} onClick={exportCsv} disabled={exporting}>
               <DownloadIcon /> {exporting ? "Exporting…" : "Export CSV"}
             </Button>
           </div>
