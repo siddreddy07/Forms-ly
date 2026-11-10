@@ -26,7 +26,7 @@ export function createCafeApplication(): FormDocument {
       },
     ],
   })
-  const cv = createBlock("file_upload", { label: "CV", help: "PDF or Word, up to 10 MB" })
+  const cv = createBlock("file_upload", { label: "CV", help: "PDF or Word, up to 3 MB" })
 
   return {
     version: SCHEMA_VERSION,
