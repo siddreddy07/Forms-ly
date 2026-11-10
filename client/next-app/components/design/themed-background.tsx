@@ -1,10 +1,11 @@
 "use client"
 
 import { useFormDesign } from "@/components/design/use-form-design"
-import { backgroundCss, fontVars } from "@/lib/api/mock-design"
+import { designStyle } from "@/lib/api/mock-design"
 import { useIsPro } from "@/lib/pro"
 
-/* The page behind a form, tinted by the Design tab. Only the background; the form card stays as it is. */
+/* The page behind a form. Applies the Design tab: background colour for everyone, and the Pro look
+   (font, accent colour, corners, width) as CSS variables that everything inside picks up. */
 export function ThemedBackground({
   formId,
   className,
@@ -19,7 +20,7 @@ export function ThemedBackground({
   const design = useFormDesign(formId)
   const pro = useIsPro()
   return (
-    <Tag className={className} style={{ backgroundColor: design ? backgroundCss(design) : undefined, ...(design && pro ? fontVars(design.font) : undefined) }}>
+    <Tag className={className} style={designStyle(design, pro)}>
       {children}
     </Tag>
   )

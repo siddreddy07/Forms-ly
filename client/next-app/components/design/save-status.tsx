@@ -1,0 +1,36 @@
+"use client"
+
+import * as React from "react"
+import { AlertCircleIcon, CheckIcon, Loader2Icon } from "lucide-react"
+
+import { getSaveState, subscribeSaveState } from "@/lib/api/mock-design"
+import { cn } from "@/lib/utils"
+
+/* "Saving", "Saved at 3:42 PM" or an error, so people know their design changes are kept.
+   On small screens only the icon shows; the words are still read out to screen readers. */
+export function SaveStatus({ formId, className }: { formId: string; className?: string }) {
+  const state = React.useSyncExternalStore(
+    subscribeSaveState,
+    () => getSaveState(formId),
+    () => getSaveState(formId)
+  )
+
+  const time = state.savedAt ? new Date(state.savedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : null
+  const label =
+    state.status === "saving"
+      ? "Saving..."
+      : state.status === "error"
+        ? "Couldn't save. Check your storage and try again."
+        : state.status === "saved"
+          ? `Saved${time ? ` at ${time}` : ""}`
+          : "Changes save automatically"
+
+  return (
+    <p role="status" aria-live="polite" className={cn("flex items-center gap-1.5 text-xs text-muted-foreground", state.status === "error" && "text-destructive", className)}>
+      {state.status === "saving" && <Loader2Icon className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
+      {state.status === "saved" && <CheckIcon className="size-3.5 shrink-0" aria-hidden="true" />}
+      {state.status === "error" && <AlertCircleIcon className="size-3.5 shrink-0" aria-hidden="true" />}
+      <span className="max-sm:sr-only">{label}</span>
+    </p>
+  )
+}

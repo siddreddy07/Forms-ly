@@ -2,8 +2,11 @@
 
 import * as React from "react"
 
+import { useFormDesign } from "@/components/design/use-form-design"
 import { useFormMeta } from "@/components/forms/use-form-meta"
 import { FormRenderer } from "@/components/renderer/form-renderer"
+import { thankYouFor } from "@/lib/api/mock-design"
+import { useIsPro } from "@/lib/pro"
 import { readPublishedDoc } from "@/lib/api/mock-meta"
 import { submitResponse } from "@/lib/api/mock-responses"
 import { readServerRecord } from "@/lib/api/mock-server"
@@ -20,6 +23,8 @@ function Notice({ title, text }: { title: string; text: string }) {
 
 export function PublicForm({ formId, sample, preview }: { formId: string; sample: FormDocument; preview: boolean }) {
   const meta = useFormMeta(formId)
+  const design = useFormDesign(formId)
+  const pro = useIsPro()
   const openedAt = React.useRef<number | null>(null)
   React.useEffect(() => {
     openedAt.current = Date.now()
@@ -30,7 +35,7 @@ export function PublicForm({ formId, sample, preview }: { formId: string; sample
     return (
       <>
         <p className="mb-4 rounded-lg border bg-muted/40 p-2.5 text-center text-sm">Preview. Only you can see this.</p>
-        <FormRenderer form={readServerRecord(formId, sample).doc} allowAnother showEmptyBanner />
+        <FormRenderer form={readServerRecord(formId, sample).doc} allowAnother showEmptyBanner thankYou={thankYouFor(design, pro, { redirect: false })} />
       </>
     )
   }
@@ -40,6 +45,7 @@ export function PublicForm({ formId, sample, preview }: { formId: string; sample
   return (
     <FormRenderer
       form={liveDoc}
+      thankYou={thankYouFor(design, pro, { redirect: true })}
       onSubmit={async (answers) => {
         const res = await submitResponse(formId, { answers, fields: liveDoc.steps.flatMap((st) => st.blocks).filter((b) => isAnswerBlock(b.type)), formVersion: meta.publishedVersion, durationMs: openedAt.current ? Date.now() - openedAt.current : null })
         if (!res.ok) throw new Error("Couldn't save your answers. Please try again.")

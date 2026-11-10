@@ -5,7 +5,7 @@ import { CheckCircle2Icon } from "lucide-react"
 
 import { BlockField, spanClass } from "@/components/renderer/field"
 import { FormHeaderView } from "@/components/renderer/form-header"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   buildScreens,
   validateBlocks,
@@ -21,7 +21,9 @@ type Props = {
   mode?: FormMode
   onSubmit?: (answers: Answers) => void | Promise<void>
   submitLabel?: string
-  thankYou?: { title: string; message?: string }
+  thankYou?: { title: string; message?: string; button?: { label: string; url: string }; redirectUrl?: string }
+  /* Design tab: show the thank-you screen without filling in the form. */
+  forceThankYou?: boolean
   /* Preview only: lets the tester fill the form in again. */
   allowAnother?: boolean
   /* Builder preview only: show the banner slot even when no image is set. */
@@ -36,6 +38,7 @@ function FormRenderer({
   thankYou = { title: "Thank you", message: "Your response has been recorded." },
   allowAnother,
   showEmptyBanner,
+  forceThankYou,
 }: Props) {
   const [answers, setAnswers] = React.useState<Answers>({})
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -119,12 +122,28 @@ function FormRenderer({
     }
   }
 
-  if (done) {
+  const showThankYou = done || forceThankYou
+
+  /* Live form only: if the owner set a redirect address, send people there after a moment. */
+  React.useEffect(() => {
+    const url = thankYou.redirectUrl
+    if (!done || !url) return
+    const timer = setTimeout(() => window.location.assign(url), 2500)
+    return () => clearTimeout(timer)
+  }, [done, thankYou.redirectUrl])
+
+  if (showThankYou) {
     return (
       <div data-form-renderer className="flex flex-col items-center py-10 text-center" role="status">
         <CheckCircle2Icon className="size-10" aria-hidden="true" />
         <h2 className="mt-4 font-display text-2xl font-medium tracking-tight">{thankYou.title}</h2>
         {thankYou.message && <p className="mt-1 text-muted-foreground">{thankYou.message}</p>}
+        {thankYou.button && (
+          <a href={thankYou.button.url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ className: "mt-6" })}>
+            {thankYou.button.label}
+          </a>
+        )}
+        {thankYou.redirectUrl && <p className="mt-4 text-sm text-muted-foreground">Taking you to the next page...</p>}
         {allowAnother ? (
           <Button
             variant="outline"
@@ -182,7 +201,7 @@ function FormRenderer({
             className="h-1.5 overflow-hidden rounded-full bg-muted"
           >
             <div
-              className="h-full rounded-full bg-foreground transition-[width] duration-300 ease-out motion-reduce:transition-none"
+              className="h-full rounded-full bg-primary transition-[width] duration-300 ease-out motion-reduce:transition-none"
               style={{ width: `${progress}%` }}
             />
           </div>
