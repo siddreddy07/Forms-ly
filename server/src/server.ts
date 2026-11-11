@@ -19,6 +19,11 @@ app.use(express.json({ limit: "2mb" }))
 // Reads the Clerk session on every request (never blocks by itself)
 app.use(clerkMiddleware())
 
+// For the host's health check: answers without touching the database or needing a sign-in
+app.get("/health", (_req, res) => {
+  res.json({ ok: true })
+})
+
 // Who am I? Needs a Clerk session token in the Authorization header
 app.get("/me", requireUser, (req, res) => {
   res.json({ user: req.user })

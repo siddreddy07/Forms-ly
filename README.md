@@ -54,6 +54,22 @@ Set `CLIENT_URL` in `server/.env` to the client's address, so the API accepts it
 | server | `npm run db:migrate` | Apply migrations |
 | server | `npm run db:studio` | Browse the database |
 
+## Deploy
+
+**API on Render.** Create a Blueprint from this repo (it reads `render.yaml`) and fill in the environment variables it lists. Set `CLIENT_URL` to the web app's final address. Run `npm run db:migrate` once against the production database.
+
+**Web app on Cloudflare Workers** (through OpenNext). From `client/next-app`:
+
+```bash
+npx wrangler login
+# Set these in .env.production first; NEXT_PUBLIC_* values are baked in at build time:
+#   NEXT_PUBLIC_API_URL=<your Render URL>, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, and the Clerk sign-in URLs
+npx wrangler secret put CLERK_SECRET_KEY
+npm run cf:deploy
+```
+
+`npm run cf:preview` runs the built app locally on the Workers runtime. Finally, add the deployed web address to your Clerk instance (allowed origins and redirect URLs).
+
 ## Optional services
 
 - **Redis cache:** set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Without them every read goes straight to Postgres.

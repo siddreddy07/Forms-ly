@@ -50,3 +50,8 @@ desktop.ini
 
 # local scratch
 *.local
+
+# cloudflare
+/.open-next
+/.wrangler
+.dev.vars
