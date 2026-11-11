@@ -21,8 +21,8 @@ const countConfig = { count: { label: "Responses", color: "var(--foreground)" } 
 
 function Card({ title, children, className }: { title?: string; children: React.ReactNode; className?: string }) {
   return (
-    <section className={cn("rounded-xl border bg-card p-4 sm:p-5", className)}>
-      {title && <h3 className="mb-3 text-sm font-medium">{title}</h3>}
+    <section className={cn("rounded-xl border bg-card p-2.5 sm:p-5", className)}>
+      {title && <h3 className="mb-2 text-xs font-medium sm:mb-3 sm:text-sm">{title}</h3>}
       {children}
     </section>
   )
@@ -30,10 +30,10 @@ function Card({ title, children, className }: { title?: string; children: React.
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-xl border bg-card p-4 sm:p-5">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 font-display text-3xl font-medium tracking-tight tabular-nums">{value}</p>
-      {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
+    <div className="min-w-0 rounded-xl border bg-card p-2.5 sm:p-5">
+      <p className="truncate text-[0.6875rem] text-muted-foreground sm:text-xs">{label}</p>
+      <p className="mt-0.5 font-display text-xl font-medium tracking-tight tabular-nums sm:mt-1 sm:text-3xl">{value}</p>
+      {hint && <p className="mt-0.5 truncate text-[0.625rem] text-muted-foreground sm:text-xs">{hint}</p>}
     </div>
   )
 }
@@ -42,7 +42,7 @@ const dayLabel = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateStri
 
 function OverTime({ data }: { data: { date: string; count: number }[] }) {
   return (
-    <ChartContainer config={countConfig} className="aspect-auto h-64 w-full sm:h-80">
+    <ChartContainer config={countConfig} className="aspect-auto h-40 w-full sm:h-80">
       <AreaChart data={data} margin={{ left: 0, right: 8, top: 8 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="date" tickFormatter={dayLabel} tickLine={false} axisLine={false} tickMargin={8} minTickGap={24} />
@@ -57,7 +57,7 @@ function OverTime({ data }: { data: { date: string; count: number }[] }) {
 function Bars({ bars, vertical }: { bars: { label: string; count: number }[]; vertical?: boolean }) {
   if (vertical) {
     return (
-      <ChartContainer config={countConfig} className="aspect-auto h-44 w-full">
+      <ChartContainer config={countConfig} className="aspect-auto h-32 w-full sm:h-44">
         <BarChart data={bars} margin={{ left: 0, right: 8, top: 8 }}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
@@ -69,19 +69,19 @@ function Bars({ bars, vertical }: { bars: { label: string; count: number }[]; ve
     )
   }
   return (
-    <ChartContainer config={countConfig} className="aspect-auto w-full" style={{ height: bars.length * 38 + 12 }}>
-      <BarChart data={bars} layout="vertical" margin={{ left: 0, right: 24 }}>
+    <ChartContainer config={countConfig} className="aspect-auto w-full" style={{ height: bars.length * 30 + 10 }}>
+      <BarChart data={bars} layout="vertical" margin={{ left: 0, right: 16 }}>
         <YAxis
           dataKey="label"
           type="category"
-          width={96}
+          width={84}
           tickLine={false}
           axisLine={false}
           tickFormatter={(v: string) => (v.length > 14 ? `${v.slice(0, 13)}…` : v)}
         />
         <XAxis type="number" hide />
         <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
-        <Bar dataKey="count" fill="var(--color-count)" radius={4} barSize={18} />
+        <Bar dataKey="count" fill="var(--color-count)" radius={4} barSize={14} />
       </BarChart>
     </ChartContainer>
   )
@@ -90,9 +90,9 @@ function Bars({ bars, vertical }: { bars: { label: string; count: number }[]; ve
 /* Choice, rating and number questions get their own small chart. Text-like questions only appear in the completion list. */
 function QuestionCard({ q, total }: { q: Exclude<Question, { kind: "other" }>; total: number }) {
   return (
-    <Card className="grid content-start gap-3">
+    <Card className="grid content-start gap-2 sm:gap-3">
       <div>
-        <h3 className="text-sm font-medium">{q.label || "Untitled question"}</h3>
+        <h3 className="text-[0.8125rem] font-medium sm:text-sm">{q.label || "Untitled question"}</h3>
         <p className="text-xs text-muted-foreground">
           {q.answered} of {total} answered
         </p>
@@ -100,14 +100,14 @@ function QuestionCard({ q, total }: { q: Exclude<Question, { kind: "other" }>; t
       {q.kind === "choice" && <Bars bars={q.bars} />}
       {q.kind === "rating" && (
         <>
-          <p className="font-display text-2xl font-medium tabular-nums">
+          <p className="font-display text-xl font-medium tabular-nums sm:text-2xl">
             {q.average.toFixed(1)} <span className="text-sm font-normal text-muted-foreground">average</span>
           </p>
           <Bars bars={q.bars} vertical />
         </>
       )}
       {q.kind === "number" && (
-        <dl className="grid grid-cols-3 gap-2 text-center">
+        <dl className="grid grid-cols-3 gap-1.5 text-center sm:gap-2">
           {[
             ["Average", q.average.toFixed(1)],
             ["Lowest", String(q.min)],
@@ -130,19 +130,19 @@ function Completion({ questions, total }: { questions: Question[]; total: number
   if (bars.length === 0) return null
   return (
     <Card title="Answered, by question (%)">
-      <ChartContainer config={countConfig} className="aspect-auto w-full" style={{ height: bars.length * 38 + 12 }}>
-        <BarChart data={bars} layout="vertical" margin={{ left: 0, right: 24 }}>
+      <ChartContainer config={countConfig} className="aspect-auto w-full" style={{ height: bars.length * 30 + 10 }}>
+        <BarChart data={bars} layout="vertical" margin={{ left: 0, right: 16 }}>
           <YAxis
             dataKey="label"
             type="category"
-            width={120}
+            width={100}
             tickLine={false}
             axisLine={false}
             tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
           />
           <XAxis type="number" domain={[0, 100]} hide />
           <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel formatter={(v) => `${v}%`} />} />
-          <Bar dataKey="count" fill="var(--color-count)" radius={4} barSize={18} />
+          <Bar dataKey="count" fill="var(--color-count)" radius={4} barSize={14} />
         </BarChart>
       </ChartContainer>
     </Card>
@@ -157,9 +157,9 @@ export function AnalyticsView({ formId }: { formId: string }) {
 
   if (state.status === "error") {
     return (
-      <div className="mx-auto grid w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
-        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
-          <h3 className="font-display text-2xl font-medium tracking-tight">Couldn&apos;t load analytics</h3>
+      <div className="mx-auto grid w-full max-w-6xl px-2.5 py-3 sm:px-6 sm:py-8">
+        <div className="flex min-h-[40svh] sm:min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center sm:px-6">
+          <h3 className="font-display text-xl font-medium tracking-tight sm:text-2xl">Couldn&apos;t load analytics</h3>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">Check your connection and try again.</p>
           <Button variant="outline" className="mt-4" onClick={retry}>
             Try again
@@ -173,11 +173,11 @@ export function AnalyticsView({ formId }: { formId: string }) {
   const charted = a.questions.filter((q): q is Exclude<Question, { kind: "other" }> => q.kind !== "other")
 
   return (
-    <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="mx-auto grid w-full max-w-6xl gap-3 px-2.5 py-3 sm:gap-5 sm:px-6 sm:py-8">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h2 className="font-display text-2xl font-medium tracking-tight">Analytics</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">How your form is doing. Only numbers are shown here; read answers in Responses.</p>
+          <h2 className="font-display text-lg font-medium tracking-tight sm:text-2xl">Analytics</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">How your form is doing. Only numbers are shown here; read answers in Responses.</p>
         </div>
         <div role="radiogroup" aria-label="Date range" className="grid grid-cols-3 rounded-lg bg-muted p-0.5">
           {ranges.map((r) => (
@@ -188,7 +188,7 @@ export function AnalyticsView({ formId }: { formId: string }) {
               aria-checked={range === r.id}
               onClick={() => setRange(r.id)}
               className={cn(
-                "h-8 rounded-md px-3 text-sm font-medium outline-none focus-visible:outline-2 focus-visible:outline-ring",
+                "h-7 rounded-md px-3 text-xs font-medium sm:h-8 sm:text-sm outline-none focus-visible:outline-2 focus-visible:outline-ring",
                 range === r.id ? "bg-background shadow-sm" : "text-muted-foreground"
               )}
             >
@@ -199,16 +199,16 @@ export function AnalyticsView({ formId }: { formId: string }) {
       </div>
 
       {a.total === 0 ? (
-        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
+        <div className="flex min-h-[40svh] sm:min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center sm:px-6">
           <span className="inline-flex size-12 items-center justify-center rounded-xl border bg-card">
             <BarChart3Icon className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
-          <h3 className="mt-4 font-display text-2xl font-medium tracking-tight">No data yet</h3>
+          <h3 className="mt-4 font-display text-xl font-medium tracking-tight sm:text-2xl">No data yet</h3>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">Charts appear once people submit your form.</p>
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Stat label="Responses" value={String(a.total)} hint={range === "all" ? "All time" : `${a.inRange} in the last ${range} days`} />
             <Stat label="Days active" value={String(a.daysActive)} hint={`Since ${new Date(a.since).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`} />
             <Stat label="Time to complete" value={formatDuration(a.avgDurationMs)} hint="Average" />
@@ -221,7 +221,7 @@ export function AnalyticsView({ formId }: { formId: string }) {
           <Completion questions={a.questions} total={a.inRange} />
 
           {charted.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-2.5 sm:gap-4 md:grid-cols-2">
               {charted.map((q) => (
                 <QuestionCard key={q.id} q={q} total={a.inRange} />
               ))}

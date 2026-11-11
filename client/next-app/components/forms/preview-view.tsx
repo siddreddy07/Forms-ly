@@ -53,7 +53,7 @@ export function PreviewView({ formId }: { formId: string }) {
   if (!data || !doc) return <PublicFormSkeleton />
 
   return (
-    <ThemedBackground as="main" design={design} className="min-h-svh px-4 py-8 sm:py-16">
+    <ThemedBackground as="main" design={design} className="min-h-svh px-2 py-3 sm:px-5 sm:py-6 lg:px-4 lg:py-12">
       <FormFrame design={design} title={!doc.header?.title ? data.form.title : undefined}>
         <p className="mb-4 rounded-lg border bg-muted/40 p-2.5 text-center text-sm">Preview. Only you can see this.</p>
         <FormRenderer form={doc} allowAnother showEmptyBanner thankYou={thankYouFor(design, { redirect: false })} />

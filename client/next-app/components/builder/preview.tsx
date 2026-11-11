@@ -16,7 +16,7 @@ export function PreviewPane({ formId, onExit }: { formId: string; onExit: () => 
   const design = useFormDesign(formId)
   return (
     <div className="min-w-0">
-      <div className="sticky top-14 z-20 flex items-center gap-2 border-b bg-background/85 px-3 py-2 backdrop-blur-xl lg:top-0">
+      <div className="sticky top-14 z-5 flex items-center gap-2 border-b bg-background/85 px-3 py-2 backdrop-blur-xl lg:top-0">
         <Button variant="outline" size="sm" onClick={onExit}>
           <PencilIcon data-icon="inline-start" />
           Back to editing

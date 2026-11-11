@@ -19,7 +19,7 @@ export function FormHeaderView({
   const slot = editing || showEmptyBanner
 
   return (
-    <div className="mb-6 grid gap-3">
+    <div className="mb-3 grid gap-1.5 lg:mb-6 lg:gap-3">
       {banner ? (
         /* eslint-disable-next-line @next/next/no-img-element */
         <img src={banner} alt="" className="aspect-[3/1] w-full rounded-lg object-cover" />
@@ -32,12 +32,12 @@ export function FormHeaderView({
         )
       )}
       {(title || editing) && (
-        <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">
+        <h1 className="font-display text-xl leading-tight font-medium tracking-tight sm:text-2xl lg:text-4xl">
           {title || <span className="text-muted-foreground">Form title</span>}
         </h1>
       )}
       {(description || editing) && (
-        <p className="text-muted-foreground">{description || "Add a short description of your company or this form."}</p>
+        <p className="text-[0.8125rem] text-muted-foreground lg:text-base">{description || "Add a short description of your company or this form."}</p>
       )}
     </div>
   )

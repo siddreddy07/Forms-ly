@@ -109,8 +109,8 @@ export function BlockField({
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
           aria-required={block.required || undefined}
-          rows={4}
-          className="min-h-24 rounded-lg"
+          rows={3}
+          className="min-h-16 rounded-lg px-2.5 py-1.5 text-sm lg:min-h-24"
         />
       )
       break
@@ -163,7 +163,7 @@ export function BlockField({
           aria-describedby={describedBy}
           aria-invalid={invalid || undefined}
           aria-required={block.required || undefined}
-          className="h-11 rounded-lg"
+          className="h-9 rounded-lg px-2.5 text-sm lg:h-11"
         />
       )
     }
@@ -172,7 +172,7 @@ export function BlockField({
   const head = (
     <>
       {block.help && (
-        <p id={helpId} className="mb-2 text-sm text-muted-foreground">
+        <p id={helpId} className="mb-1 text-xs text-muted-foreground lg:mb-2 lg:text-sm">
           {block.help}
         </p>
       )}
@@ -186,14 +186,14 @@ export function BlockField({
 
   return isGroup ? (
     <fieldset data-field={block.id} aria-describedby={describedBy} aria-invalid={invalid || undefined}>
-      <legend className="mb-1.5 text-sm font-medium">{labelNode}</legend>
+      <legend className="mb-1 text-[0.8125rem] font-medium lg:mb-1.5 lg:text-sm">{labelNode}</legend>
       {head}
       {control}
       {foot}
     </fieldset>
   ) : (
     <div data-field={block.id}>
-      <label htmlFor={id} className="mb-1.5 block text-sm font-medium">
+      <label htmlFor={id} className="mb-1 block text-[0.8125rem] font-medium lg:mb-1.5 lg:text-sm">
         {labelNode}
       </label>
       {head}

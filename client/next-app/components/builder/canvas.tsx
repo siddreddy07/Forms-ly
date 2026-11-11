@@ -82,7 +82,7 @@ function SortableBlock({
           }
         }}
         className={cn(
-          "cursor-pointer scroll-mt-32 rounded-lg border border-transparent p-2 pl-8 transition-colors outline-none hover:border-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+          "cursor-pointer scroll-mt-32 rounded-lg border border-transparent p-1 pl-7 transition-colors sm:p-2 sm:pl-8 outline-none hover:border-border focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
           selected && "border-foreground bg-muted/40 hover:border-foreground"
         )}
       >
@@ -168,7 +168,16 @@ function Canvas() {
 
   return (
     <div
-      className="mx-auto w-full max-w-xl space-y-4"
+      /* Phones and tablets: the form inside the canvas is drawn smaller (shorter fields, smaller text). Only the `inert`
+         preview parts are shrunk, so the step name boxes you really type in keep a size iOS will not zoom into. */
+      className={cn(
+        "mx-auto w-full max-w-xl space-y-2 sm:space-y-4",
+        "max-lg:[&_[inert]_input]:h-8 max-lg:[&_[inert]_input]:text-[0.8rem]",
+        "max-lg:[&_[inert]_textarea]:min-h-14 max-lg:[&_[inert]_textarea]:text-[0.8rem]",
+        "max-lg:[&_[inert]_label]:text-[0.8rem] max-lg:[&_[inert]_legend]:text-[0.8rem]",
+        "max-lg:[&_[inert]_label.block]:mb-1 max-lg:[&_[inert]_legend]:mb-1",
+        "max-lg:[&_[inert]_h1]:text-xl max-lg:[&_[inert]_h2]:text-lg max-lg:[&_[inert]_p]:text-[0.8rem]"
+      )}
       onClick={() => select(null)}
     >
       {doc.header && (
@@ -192,7 +201,7 @@ function Canvas() {
             }
           }}
           className={cn(
-            "cursor-pointer scroll-mt-32 rounded-xl border bg-card p-4 pb-1 transition-colors outline-none hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring sm:p-6 sm:pb-2",
+            "cursor-pointer scroll-mt-32 rounded-xl border bg-card p-3 pb-1 transition-colors outline-none hover:border-foreground/40 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring sm:p-6 sm:pb-2",
             headerSelected && "border-foreground hover:border-foreground"
           )}
         >
@@ -295,7 +304,7 @@ function Canvas() {
               items={step.blocks.map((b) => b.id)}
               strategy={rectSortingStrategy}
             >
-              <div className="grid grid-cols-12 gap-x-3 gap-y-3">
+              <div className="grid grid-cols-12 gap-x-2 gap-y-0.5 sm:gap-x-3 sm:gap-y-3">
                 {step.blocks.map((block) => (
                   <SortableBlock
                     key={block.id}

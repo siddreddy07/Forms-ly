@@ -35,12 +35,12 @@ export function FormFrame({
 
   return (
     <div className={cn("mx-auto w-full max-w-[var(--form-width,36rem)]", className)}>
-      {title && <h1 className="mb-6 font-display text-3xl font-medium tracking-tight sm:text-4xl">{title}</h1>}
-      <div inert={inert} className={cn("rounded-xl border bg-card p-5 sm:p-8", inert && "select-none")}>
+      {title && <h1 className="mb-3 font-display text-xl leading-tight font-medium tracking-tight sm:text-2xl lg:mb-6 lg:text-4xl">{title}</h1>}
+      <div inert={inert} className={cn("rounded-xl border bg-card p-3 sm:p-5 lg:p-8", inert && "select-none")}>
         {children}
       </div>
       {showBadge && (
-        <div className="mt-5 flex justify-center">
+        <div className="mt-3 flex justify-center lg:mt-5">
           <MadeWith />
         </div>
       )}

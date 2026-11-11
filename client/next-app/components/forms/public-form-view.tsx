@@ -40,7 +40,7 @@ export function PublicFormView({ slug, data: first }: { slug: string; data: Publ
   }
 
   return (
-    <ThemedBackground as="main" design={design} className="min-h-svh px-4 py-8 sm:py-16">
+    <ThemedBackground as="main" design={design} className="min-h-svh px-2 py-3 sm:px-5 sm:py-6 lg:px-4 lg:py-12">
       <FormFrame
         design={design}
         title={doc && !doc.header?.title ? live.title : undefined}

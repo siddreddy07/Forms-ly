@@ -37,7 +37,7 @@ function useCopy(value: string) {
 function CopyButton({ value, label, variant = "outline" }: { value: string; label: string; variant?: "default" | "outline" | "secondary" }) {
   const { copied, copy } = useCopy(value)
   return (
-    <Button variant={variant} onClick={copy} disabled={!value} className="shrink-0">
+    <Button variant={variant} onClick={copy} disabled={!value} className="shrink-0 max-sm:h-8 max-sm:px-2.5 max-sm:text-xs">
       {copied ? <CheckIcon data-icon="inline-start" /> : <CopyIcon data-icon="inline-start" />}
       <span className={label === "Copy" ? "max-sm:sr-only" : undefined}>{copied ? "Copied" : label}</span>
     </Button>
@@ -123,44 +123,44 @@ export function ShareView({ formId }: { formId: string }) {
   /* ---------- Not published yet ---------- */
   if (!info.published) {
     return (
-      <div className="mx-auto w-full max-w-2xl px-4 py-5 sm:px-6 sm:py-8">
-        <div className="divide-y rounded-xl border bg-card">
-          <section className="grid gap-1.5 p-4 sm:p-5">
-            <h2 className="font-display text-xl font-medium tracking-tight sm:text-2xl">Publish to get a link</h2>
-            <p className="text-sm text-muted-foreground">Your form saves as you build it. Publishing puts it live at a link you can share.</p>
+      <div className="mx-auto w-full max-w-2xl min-w-0 overflow-x-clip px-2 py-2 sm:px-6 sm:py-8">
+        <div className="min-w-0 divide-y rounded-xl border bg-card [&>section]:min-w-0">
+          <section className="grid grid-cols-[minmax(0,1fr)] gap-1 p-2.5 sm:gap-1.5 sm:p-5">
+            <h2 className="font-display text-base font-medium tracking-tight sm:text-2xl">Publish to get a link</h2>
+            <p className="text-xs text-muted-foreground sm:text-sm">Your form saves as you build it. Publishing puts it live at a link you can share.</p>
           </section>
 
           {/* What you will get: the link starts with the form's own name. */}
-          <section className="grid gap-2 p-4 sm:p-5">
-            <h3 className="text-sm font-medium">Your link will look like this</h3>
+          <section className="grid grid-cols-[minmax(0,1fr)] gap-1.5 p-2.5 sm:gap-2 sm:p-5">
+            <h3 className="text-xs font-medium sm:text-sm">Your link will look like this</h3>
             <p
-              className="truncate rounded-lg border border-dashed bg-muted/30 px-3 py-2 font-mono text-sm text-muted-foreground"
+              className="truncate rounded-lg border border-dashed bg-muted/30 px-2.5 py-1.5 font-mono text-xs text-muted-foreground sm:px-3 sm:py-2 sm:text-sm"
               aria-hidden="true"
             >
               {origin ? origin.replace(/^https?:\/\//, "") : "yourdomain.com"}/f/{previewSlug(form.title)}-••••••
             </p>
-            <p className="text-sm text-muted-foreground">It stays the same even if you rename the form.</p>
+            <p className="text-xs text-muted-foreground sm:text-sm">It stays the same even if you rename the form.</p>
           </section>
 
           {/* Public unless this is switched on. */}
-          <section className="flex items-center justify-between gap-4 p-4 sm:p-5">
+          <section className="flex items-center justify-between gap-4 p-2.5 sm:p-5">
             <label htmlFor="start-private" className="grid cursor-pointer gap-0.5">
-              <span className="text-sm font-medium">Make it private</span>
-              <span className="text-sm text-muted-foreground">
+              <span className="text-xs font-medium sm:text-sm">Make it private</span>
+              <span className="text-xs text-muted-foreground sm:text-sm">
                 {startPrivate ? "Private: people need a 4 digit code to open the link. You'll see the code after you publish." : "Public: anyone with the link can fill it in."}
               </span>
             </label>
             <Switch id="start-private" checked={startPrivate} onCheckedChange={setStartPrivate} disabled={busy !== null} />
           </section>
 
-          <section className="flex flex-wrap items-center gap-2 p-4 sm:p-5">
+          <section className="flex flex-wrap items-center gap-2 p-2.5 sm:p-5">
             <PendingLock pending={busy === "publish" || busy === "unpublish"} className="max-sm:w-full rounded-lg">
-              <Button size="lg" className="max-sm:w-full" onClick={() => void publishNow(false)} disabled={busy !== null}>
+              <Button size="lg" className="max-sm:h-8 max-sm:w-full max-sm:text-[0.8125rem]" onClick={() => void publishNow(false)} disabled={busy !== null}>
                 {busy === "publish" && <LoaderCircle animate size={16} className="size-4" aria-hidden="true" />}
                 {busy === "publish" ? "Publishing" : "Publish"}
               </Button>
             </PendingLock>
-            <Link href={`/preview/${formId}`} target="_blank" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "max-sm:w-full")}>
+            <Link href={`/preview/${formId}`} target="_blank" className={cn(buttonVariants({ variant: "outline", size: "lg" }), "max-sm:h-8 max-sm:w-full max-sm:text-[0.8125rem]")}>
               <EyeIcon data-icon="inline-start" />
               Preview first
             </Link>
@@ -180,31 +180,31 @@ export function ShareView({ formId }: { formId: string }) {
 
   /* One narrow column that fits a phone as it is: status, link, who can fill it in, embed, unpublish. */
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-5 sm:px-6 sm:py-8">
-      <div className="divide-y rounded-xl border bg-card">
+    <div className="mx-auto w-full max-w-2xl min-w-0 overflow-x-clip px-2 py-2 sm:px-6 sm:py-8">
+      <div className="min-w-0 divide-y rounded-xl border bg-card [&>section]:min-w-0">
         {/* Status, and the one thing that needs doing when there are changes. */}
-        <section className="grid gap-3 p-4 sm:p-5">
+        <section className="grid grid-cols-[minmax(0,1fr)] gap-2 p-2.5 sm:gap-2.5 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", isPublic ? "bg-emerald-500" : "bg-amber-500")} />
-              <h2 className="font-display text-lg font-medium tracking-tight">{isPublic ? "Live" : "Private"}</h2>
+              <h2 className="font-display text-base font-medium tracking-tight sm:text-lg">{isPublic ? "Live" : "Private"}</h2>
               {info.publishedAt && (
-                <span className="truncate text-sm text-muted-foreground" title={dateTime(info.publishedAt)}>
+                <span className="truncate text-xs text-muted-foreground sm:text-sm" title={dateTime(info.publishedAt)}>
                   · published {timeAgo(info.publishedAt)}
                 </span>
               )}
             </div>
-            <Link href={`/preview/${formId}`} target="_blank" className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <Link href={`/preview/${formId}`} target="_blank" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "shrink-0 max-sm:text-xs")}>
               <EyeIcon data-icon="inline-start" />
               Preview
             </Link>
           </div>
 
           {info.hasChanges && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-500/10 px-3 py-2.5">
-              <p className="text-sm">You have changes that aren&apos;t live yet.</p>
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-amber-500/10 px-2.5 py-2 sm:px-3 sm:py-2.5">
+              <p className="text-xs sm:text-sm">You have changes that aren&apos;t live yet.</p>
               <PendingLock pending={working} className="rounded-lg">
-                <Button size="sm" onClick={() => void publishNow(true)} disabled={busy !== null}>
+                <Button size="sm" className="max-sm:h-7 max-sm:text-xs" onClick={() => void publishNow(true)} disabled={busy !== null}>
                   {busy === "publish" && <LoaderCircle animate size={16} className="size-4" aria-hidden="true" />}
                   {busy === "publish" ? "Updating" : "Update live form"}
                 </Button>
@@ -214,12 +214,12 @@ export function ShareView({ formId }: { formId: string }) {
         </section>
 
         {/* The link: shown as one line you can read, copy or open. */}
-        <section className="grid gap-2 p-4 sm:p-5">
-          <h3 className="text-sm font-medium">Link</h3>
+        <section className="grid grid-cols-[minmax(0,1fr)] gap-1.5 p-2.5 sm:gap-2 sm:p-5">
+          <h3 className="text-xs font-medium sm:text-sm">Link</h3>
           <div className="flex items-center gap-2">
             <p
               className={cn(
-                "min-w-0 flex-1 truncate rounded-lg border bg-muted/40 px-3 py-2 font-mono text-sm",
+                "min-w-0 flex-1 truncate rounded-lg border bg-muted/40 px-2.5 py-1.5 font-mono text-xs sm:px-3 sm:py-2 sm:text-sm",
                 !isPublic && "text-muted-foreground"
               )}
               title={url}
@@ -231,24 +231,24 @@ export function ShareView({ formId }: { formId: string }) {
               href={`/f/${info.slug}`}
               target="_blank"
               aria-label="Open the live form"
-              className={buttonVariants({ variant: "outline", size: "icon" })}
+              className={cn(buttonVariants({ variant: "outline", size: "icon" }), "max-sm:size-8")}
             >
               <ExternalLinkIcon />
             </Link>
           </div>
-          {!isPublic && <p className="text-sm text-muted-foreground">Visitors will be asked for the access code.</p>}
+          {!isPublic && <p className="text-xs text-muted-foreground sm:text-sm">Visitors will be asked for the access code.</p>}
         </section>
 
         {/* Public / private: two buttons side by side, one sentence under them. */}
-        <section className="grid gap-2 p-4 sm:p-5">
-          <h3 className="text-sm font-medium">Who can fill it in</h3>
+        <section className="grid grid-cols-[minmax(0,1fr)] gap-1.5 p-2.5 sm:gap-2 sm:p-5">
+          <h3 className="text-xs font-medium sm:text-sm">Who can fill it in</h3>
           <PendingLock pending={busy === "access"} className="rounded-lg">
-            <div role="radiogroup" aria-label="Who can fill it in" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+            <div role="radiogroup" aria-label="Who can fill it in" className="grid grid-cols-2 gap-0.5 rounded-lg bg-muted p-0.5 sm:gap-1 sm:p-1">
               {accessOptions.map(({ id, title, Icon }) => (
                 <label
                   key={id}
                   className={cn(
-                    "flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md text-sm font-medium transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
+                    "flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md text-xs font-medium sm:h-9 sm:gap-2 sm:text-sm transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                     access === id ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground",
                     busy !== null && "cursor-not-allowed"
                   )}
@@ -262,26 +262,26 @@ export function ShareView({ formId }: { formId: string }) {
                     onChange={() => void chooseAccess(id)}
                     className="sr-only"
                   />
-                  <Icon className="size-4" aria-hidden="true" />
+                  <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
                   {title}
                 </label>
               ))}
             </div>
           </PendingLock>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             {isPublic ? "Anyone with the link can fill it in." : "People need the access code below to open the link."}
           </p>
         </section>
 
         {/* The code that opens a private form. A new one is made each time the form is switched to private. */}
         {!isPublic && info.accessCode && (
-          <section className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <section className="flex flex-col items-start justify-between gap-2 p-3 sm:flex-row sm:items-center sm:gap-2.5 sm:p-5">
             <div className="grid gap-1">
-              <h3 className="text-sm font-medium">Access code</h3>
-              <p className="text-sm text-muted-foreground">Give this code to people you want to let in. It changes if you switch to private again.</p>
+              <h3 className="text-xs font-medium sm:text-sm">Access code</h3>
+              <p className="text-xs text-muted-foreground sm:text-sm">Give this code to people you want to let in. It changes if you switch to private again.</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <span aria-label={`Code ${info.accessCode.split("").join(" ")}`} className="rounded-lg border bg-muted/40 px-3 py-1.5 font-mono text-xl font-medium tracking-[0.3em]">
+              <span aria-label={`Code ${info.accessCode.split("").join(" ")}`} className="rounded-lg border bg-muted/40 px-2.5 py-1 font-mono text-sm font-medium tracking-[0.2em] sm:px-3 sm:py-1.5 sm:text-xl sm:tracking-[0.3em]">
                 {info.accessCode}
               </span>
               <CopyButton value={info.accessCode} label="Copy" />
@@ -291,20 +291,20 @@ export function ShareView({ formId }: { formId: string }) {
 
         {/* Embed: one line of code with its own copy button. */}
         {isPublic && (
-          <section className="flex items-center justify-between gap-3 p-4 sm:p-5">
+          <section className="flex items-center justify-between gap-3 p-2.5 sm:p-5">
             <div className="grid gap-0.5">
-              <h3 className="text-sm font-medium">Embed on your website</h3>
-              <p className="text-sm text-muted-foreground">Copy the code and paste it into your page.</p>
+              <h3 className="text-xs font-medium sm:text-sm">Embed on your website</h3>
+              <p className="text-xs text-muted-foreground sm:text-sm">Copy the code and paste it into your page.</p>
             </div>
             <CopyButton value={embed} label="Copy code" />
           </section>
         )}
 
         {/* Taking it offline keeps the link yours. */}
-        <section className="flex items-center justify-between gap-3 p-4 sm:p-5">
-          <p className="text-sm text-muted-foreground">Unpublish to take the form offline. The link stays yours.</p>
+        <section className="flex items-center justify-between gap-2 p-2.5 sm:gap-3 sm:p-5">
+          <p className="min-w-0 text-[0.6875rem] text-muted-foreground sm:text-sm">Unpublish to take the form offline. The link stays yours.</p>
           <PendingLock pending={working} className="shrink-0 rounded-lg">
-            <Button variant="destructive" size="sm" onClick={() => void unpublishNow()} disabled={busy !== null}>
+            <Button variant="destructive" size="sm" className="max-sm:h-7 max-sm:text-xs" onClick={() => void unpublishNow()} disabled={busy !== null}>
               {busy === "unpublish" && <LoaderCircle animate size={16} className="size-4" aria-hidden="true" />}
               Unpublish
             </Button>

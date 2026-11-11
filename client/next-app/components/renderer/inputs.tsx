@@ -15,7 +15,7 @@ type Common = {
 }
 
 const choiceCard =
-  "relative flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border bg-background px-3.5 py-2.5 text-sm transition-colors has-checked:border-foreground has-checked:bg-muted has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring hover:bg-muted"
+  "relative flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border bg-background px-2.5 py-1.5 text-sm lg:min-h-11 lg:gap-3 lg:px-3.5 lg:py-2.5 transition-colors has-checked:border-foreground has-checked:bg-muted has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring hover:bg-muted"
 
 /* Single choice and yes/no: native radios, so arrow keys work for free. */
 export function RadioCards({
@@ -108,7 +108,7 @@ export function Dropdown({
       aria-describedby={describedBy}
       aria-invalid={invalid || undefined}
       aria-required={block.required || undefined}
-      className="h-11 w-full rounded-lg border bg-background px-3 text-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:border-destructive"
+      className="h-9 w-full rounded-lg border bg-background px-2.5 text-sm outline-none lg:h-11 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-invalid:border-destructive"
     >
       <option value="">{block.placeholder ?? "Choose an option"}</option>
       {(block.options ?? []).map((o) => (
@@ -148,7 +148,7 @@ export function NumberScale({
                 "relative inline-flex cursor-pointer items-center justify-center rounded-lg transition-colors has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring",
                 stars
                   ? "size-10 hover:bg-muted"
-                  : "h-11 min-w-11 flex-1 border bg-background text-sm hover:bg-muted has-checked:border-foreground has-checked:bg-foreground has-checked:text-background"
+                  : "h-9 min-w-9 flex-1 border bg-background text-sm lg:h-11 lg:min-w-11 hover:bg-muted has-checked:border-foreground has-checked:bg-foreground has-checked:text-background"
               )}
             >
               <input
@@ -226,7 +226,7 @@ export function FileInput({
   return (
     <div>
       {value.length < maxFiles && (
-        <label className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed bg-background px-4 py-5 text-center text-sm text-muted-foreground transition-colors hover:bg-muted has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
+        <label className="flex min-h-14 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-lg border border-dashed bg-background px-3 py-2 lg:min-h-20 lg:gap-1 lg:px-4 lg:py-5 text-center text-sm text-muted-foreground transition-colors hover:bg-muted has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ring">
           <UploadIcon className="size-5" aria-hidden="true" />
           <span>{maxFiles > 1 ? "Choose files" : "Choose a file"}</span>
           <input

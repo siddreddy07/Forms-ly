@@ -137,9 +137,9 @@ function FormRenderer({
 
   if (showThankYou) {
     return (
-      <div data-form-renderer className="flex flex-col items-center py-10 text-center" role="status">
+      <div data-form-renderer className="flex flex-col items-center py-6 text-center lg:py-10" role="status">
         <CheckCircle2Icon className="size-10" aria-hidden="true" />
-        <h2 className="mt-4 font-display text-2xl font-medium tracking-tight">{thankYou.title}</h2>
+        <h2 className="mt-3 font-display text-xl font-medium tracking-tight lg:mt-4 lg:text-2xl">{thankYou.title}</h2>
         {thankYou.message && <p className="mt-1 text-muted-foreground">{thankYou.message}</p>}
         {thankYou.button && (
           <a href={thankYou.button.url} target="_blank" rel="noopener noreferrer" className={buttonVariants({ className: "mt-6" })}>
@@ -193,7 +193,7 @@ function FormRenderer({
       )}
 
       {multi && (
-        <div className="mb-6">
+        <div className="mb-3 lg:mb-6">
           <div className="mb-2 flex items-baseline justify-between text-sm">
             <span className="font-medium">{current.title ?? `Question ${index + 1}`}</span>
             <span className="text-muted-foreground">
@@ -217,15 +217,15 @@ function FormRenderer({
       )}
 
       {(current.heading || current.description) && (
-        <div className="mb-5 grid gap-1">
-          {current.heading && <h2 className="font-display text-2xl font-medium tracking-tight">{current.heading}</h2>}
-          {current.description && <p className="text-muted-foreground">{current.description}</p>}
+        <div className="mb-3 grid gap-0.5 lg:mb-5 lg:gap-1">
+          {current.heading && <h2 className="font-display text-lg font-medium tracking-tight lg:text-2xl">{current.heading}</h2>}
+          {current.description && <p className="text-[0.8125rem] text-muted-foreground lg:text-base">{current.description}</p>}
         </div>
       )}
 
       <div
         key={current.id}
-        className="grid grid-cols-12 gap-x-4 gap-y-5 animate-in fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none"
+        className="grid grid-cols-12 gap-x-2.5 gap-y-3 animate-in lg:gap-x-4 lg:gap-y-5 fade-in-0 slide-in-from-bottom-1 duration-300 motion-reduce:animate-none"
       >
         {current.blocks.map((block) => (
           <div key={block.id} className={spanClass(block)}>
@@ -245,15 +245,15 @@ function FormRenderer({
         </p>
       )}
 
-      <div className="mt-8 flex items-center justify-between gap-3">
+      <div className="mt-4 flex items-center justify-between gap-3 lg:mt-8">
         {index > 0 ? (
-          <Button type="button" variant="outline" size="lg" onClick={() => setIndex((i) => Math.max(i - 1, 0))}>
+          <Button type="button" variant="outline" size="lg" className="max-lg:h-9 max-lg:text-sm" onClick={() => setIndex((i) => Math.max(i - 1, 0))}>
             Back
           </Button>
         ) : (
           <span />
         )}
-        <Button type="submit" size="lg" disabled={submitting}>
+        <Button type="submit" size="lg" className="max-lg:h-9 max-lg:text-sm" disabled={submitting}>
           {isLast ? (submitting ? "Sending" : submitLabel) : "Next"}
         </Button>
       </div>

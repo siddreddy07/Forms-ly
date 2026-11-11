@@ -82,7 +82,7 @@ function Toolbar({ onPreview }: { onPreview: () => void }) {
   const btn = "size-9"
 
   return (
-    <div className="sticky top-14 z-20 flex items-center gap-1 border-b bg-background/85 px-3 py-2 backdrop-blur-xl lg:top-0">
+    <div className="sticky top-14 z-5 flex items-center gap-1 border-b bg-background/85 px-3 py-2 backdrop-blur-xl lg:top-0">
       <Hint title="Undo" description="Step back one change." shortcut="Ctrl Z">
         <Button variant="ghost" size="icon" className={btn} onClick={undo} disabled={!canUndo} aria-label="Undo">
           <Undo2Icon />
@@ -174,7 +174,7 @@ function BuilderShell() {
 
       <div className="min-w-0 lg:overflow-y-auto">
         <Toolbar onPreview={() => setPreviewing(true)} />
-        <div className={cn("bg-muted/40 px-3 py-4 pb-28 max-lg:min-h-[calc(100svh-7.5rem)] sm:px-6 sm:py-8 lg:min-h-[calc(100%-3.25rem)] lg:pb-8", hasSelection && "max-lg:pb-[46svh]")}>
+        <div className={cn("bg-muted/40 px-2 py-3 pb-28 max-lg:min-h-[calc(100svh-7.5rem)] sm:px-5 sm:py-6 lg:min-h-[calc(100%-3.25rem)] lg:pb-8", hasSelection && "max-lg:pb-[46svh]")}>
           <Canvas />
         </div>
       </div>

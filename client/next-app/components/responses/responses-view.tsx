@@ -47,7 +47,7 @@ function Answer({ block, value, text }: { block: Block; value: unknown; text: st
 }
 
 function Page({ children }: { children: React.ReactNode }) {
-  return <div className="mx-auto grid w-full max-w-6xl gap-5 px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+  return <div className="mx-auto grid w-full max-w-6xl gap-3 px-2.5 py-3 sm:gap-5 sm:px-6 sm:py-8">{children}</div>
 }
 
 /* Like a spreadsheet: one row per response, one column per question. The server does the searching, filtering and
@@ -160,8 +160,8 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
   if (state.status === "error") {
     return (
       <Page>
-        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
-          <h2 className="font-display text-2xl font-medium tracking-tight">Couldn&apos;t load responses</h2>
+        <div className="flex min-h-[40svh] sm:min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center sm:px-6">
+          <h2 className="font-display text-xl font-medium tracking-tight sm:text-2xl">Couldn&apos;t load responses</h2>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">Check your connection and try again.</p>
           <Button variant="outline" className="mt-4" onClick={retry}>
             Try again
@@ -174,11 +174,11 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
   if (state.allTotal === 0) {
     return (
       <Page>
-        <div className="flex min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-6 text-center">
+        <div className="flex min-h-[40svh] sm:min-h-[50svh] flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center sm:px-6">
           <span className="inline-flex size-12 items-center justify-center rounded-xl border bg-card">
             <InboxIcon className="size-5 text-muted-foreground" aria-hidden="true" />
           </span>
-          <h2 className="mt-4 font-display text-2xl font-medium tracking-tight">No responses yet</h2>
+          <h2 className="mt-4 font-display text-xl font-medium tracking-tight sm:text-2xl">No responses yet</h2>
           <p className="mt-1 max-w-xs text-sm text-muted-foreground">Answers show up here as a table once people submit your form.</p>
         </div>
       </Page>
@@ -201,10 +201,10 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
 
   return (
     <Page>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
-          <h2 className="font-display text-2xl font-medium tracking-tight">Responses</h2>
-          <p className="mt-0.5 text-sm text-muted-foreground">
+          <h2 className="font-display text-lg font-medium tracking-tight sm:text-2xl">Responses</h2>
+          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
             {narrowed
               ? `Showing ${state.items.length} of ${state.total} matching`
               : `${state.allTotal} ${state.allTotal === 1 ? "response" : "responses"}`}
@@ -235,14 +235,14 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
         <Table>
           <TableHeader className="bg-muted/40">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="h-11 w-14 px-4 text-xs text-muted-foreground">#</TableHead>
-              <TableHead className="h-11 px-4 text-xs text-muted-foreground">Submitted</TableHead>
+              <TableHead className="h-8 w-10 px-2.5 text-xs text-muted-foreground sm:h-11 sm:w-14 sm:px-4">#</TableHead>
+              <TableHead className="h-8 px-2.5 text-xs text-muted-foreground sm:h-11 sm:px-4">Submitted</TableHead>
               {columns.map((c) => (
-                <TableHead key={c.id} className="h-11 min-w-40 px-4">
+                <TableHead key={c.id} className="h-8 min-w-32 px-2.5 text-xs sm:h-11 sm:min-w-40 sm:px-4 sm:text-sm">
                   {c.label || "Untitled question"}
                 </TableHead>
               ))}
-              <TableHead className="h-11 w-14 px-4">
+              <TableHead className="h-8 w-10 px-1.5 sm:h-11 sm:w-14 sm:px-4">
                 <span className="sr-only">Actions</span>
               </TableHead>
             </TableRow>
@@ -250,21 +250,21 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
           <TableBody>
             {rows.map(({ r, number, cells }) => (
               <TableRow key={r.id}>
-                <TableCell className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{number}</TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">{when(r.submittedAt)}</TableCell>
+                <TableCell className="px-2.5 py-1.5 text-xs tabular-nums text-muted-foreground sm:px-4 sm:py-3">{number}</TableCell>
+                <TableCell className="px-2.5 py-1.5 text-xs whitespace-nowrap text-muted-foreground sm:px-4 sm:py-3 sm:text-sm">{when(r.submittedAt)}</TableCell>
                 {cells.map((text, ci) => (
-                  <TableCell key={columns[ci].id} className="max-w-72 truncate px-4 py-3" title={text}>
+                  <TableCell key={columns[ci].id} className="max-w-52 truncate px-2.5 py-1.5 text-xs sm:max-w-72 sm:px-4 sm:py-3 sm:text-sm" title={text}>
                     <Answer block={columns[ci]} value={r.answers[columns[ci].id]} text={text} />
                   </TableCell>
                 ))}
-                <TableCell className="px-4 py-2 text-right">
+                <TableCell className="px-1.5 py-1 text-right sm:px-4 sm:py-2">
                   <DeleteButton onDelete={() => remove(r.id)} />
                 </TableCell>
               </TableRow>
             ))}
             {nothingMatches && (
               <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={columns.length + 3} className="px-4 py-12 text-center text-muted-foreground">
+                <TableCell colSpan={columns.length + 3} className="px-4 py-8 text-center text-sm text-muted-foreground sm:py-12">
                   Nothing matches your search or filters.
                 </TableCell>
               </TableRow>
