@@ -13,8 +13,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ResponseFilters } from "@/components/responses/filters"
+import { useApi } from "@/lib/api/http"
 import { exportResponsesCsv, useResponses } from "@/lib/api/responses"
-import { activeCount, emptyFilter, fieldToBlock, type ResponseFilter } from "@/lib/responses/filter"
+import { activeCount, fieldToBlock, filterFromParam, filterToParam, type ResponseFilter } from "@/lib/responses/filter"
 import type { Block } from "@/lib/schema"
 
 const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
@@ -51,10 +52,36 @@ function Page({ children }: { children: React.ReactNode }) {
 
 /* Like a spreadsheet: one row per response, one column per question. The server does the searching, filtering and
    paging, so what is on screen and what the CSV holds are built the same way. */
-export function ResponsesView({ formId }: { formId: string }) {
-  const [query, setQuery] = React.useState("")
-  const [search, setSearch] = React.useState("")
-  const [filter, setFilter] = React.useState<ResponseFilter>(emptyFilter)
+/* Opens the table the way this user left it. A search or filter in the address (a shared link, or a refresh) wins;
+   otherwise the last one they used on this form is loaded from the server, so it follows them to any device. */
+export function ResponsesView({ formId, initialQuery = "", initialFilter = "" }: { formId: string; initialQuery?: string; initialFilter?: string }) {
+  const api = useApi()
+  const fromAddress = initialQuery !== "" || initialFilter !== ""
+  const [saved, setSaved] = React.useState<{ query: string; filter: string } | null>(fromAddress ? { query: initialQuery, filter: initialFilter } : null)
+
+  React.useEffect(() => {
+    if (saved) return
+    let cancelled = false
+    api<{ query: string; filter: unknown }>(`/forms/${formId}/responses/view`)
+      .then((v) => {
+        if (!cancelled) setSaved({ query: v.query ?? "", filter: v.filter ? JSON.stringify(v.filter) : "" })
+      })
+      .catch(() => {
+        if (!cancelled) setSaved({ query: "", filter: "" })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [api, formId, saved])
+
+  if (!saved) return <ResponsesSkeleton />
+  return <ResponsesTable formId={formId} initialQuery={saved.query} initialFilter={saved.filter} />
+}
+
+function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: string; initialQuery: string; initialFilter: string }) {
+  const [query, setQuery] = React.useState(initialQuery)
+  const [search, setSearch] = React.useState(initialQuery.trim())
+  const [filter, setFilter] = React.useState<ResponseFilter>(() => filterFromParam(initialFilter))
   const [exporting, setExporting] = React.useState(false)
   const { getToken } = useAuth()
   const { state, retry, remove, loadMore, loadingMore } = useResponses(formId, { q: search, filter })
@@ -64,6 +91,51 @@ export function ResponsesView({ formId }: { formId: string }) {
     const timer = setTimeout(() => setSearch(query.trim()), 300)
     return () => clearTimeout(timer)
   }, [query])
+
+  /* Keep the page address in step with the search and filters, so a refresh brings them back. This replaces the
+     current history entry (no new Back step for every change) and does not reload the page. */
+  React.useEffect(() => {
+    const url = new URL(window.location.href)
+    const f = filterToParam(filter)
+    if (search) url.searchParams.set("q", search)
+    else url.searchParams.delete("q")
+    if (f) url.searchParams.set("f", f)
+    else url.searchParams.delete("f")
+    if (url.href !== window.location.href) window.history.replaceState(window.history.state, "", url)
+  }, [search, filter])
+
+  /* Remember this view on the server, a moment after the last change, so it comes back on any device. Nothing is sent
+     if it matches what was last saved or loaded, and a change still waiting is sent when the page is left. */
+  const api = useApi()
+  const lastSaved = React.useRef(JSON.stringify({ query: search, filter: filterToParam(filter) }))
+  const waiting = React.useRef<string | null>(null)
+  const send = React.useCallback(
+    (keepalive: boolean) => {
+      const body = waiting.current
+      if (!body || body === lastSaved.current) return
+      waiting.current = null
+      lastSaved.current = body
+      const { query: q, filter: f } = JSON.parse(body) as { query: string; filter: string }
+      void api(`/forms/${formId}/responses/view`, { method: "PUT", body: { query: q, filter: f ? JSON.parse(f) : null }, keepalive }).catch(() => {
+        /* Not kept this time; the next change tries again. */
+        lastSaved.current = ""
+      })
+    },
+    [api, formId]
+  )
+  React.useEffect(() => {
+    waiting.current = JSON.stringify({ query: search, filter: filterToParam(filter) })
+    const timer = setTimeout(() => send(false), 1000)
+    return () => clearTimeout(timer)
+  }, [search, filter, send])
+  React.useEffect(() => {
+    const onHide = () => send(true)
+    window.addEventListener("pagehide", onHide)
+    return () => {
+      window.removeEventListener("pagehide", onHide)
+      send(true)
+    }
+  }, [send])
 
   /* The questions as columns, from the server: current questions plus ones older responses still answer. */
   const columns = state.status === "ready" ? state.columns : NO_COLUMNS
@@ -138,23 +210,23 @@ export function ResponsesView({ formId }: { formId: string }) {
               : `${state.allTotal} ${state.allTotal === 1 ? "response" : "responses"}`}
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative">
+        {/* Phones and tablets: search with small icon buttons beside it. Desktop: the buttons get their labels. */}
+        <div className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
             <SearchIcon className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search answers"
               aria-label="Search answers"
-              className="h-9 w-full pl-9 sm:w-64"
+              className="h-9 w-full pl-9"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={state.total} />
-            <Button variant="outline" className={"text-sm md:text-lg"} onClick={exportCsv} disabled={exporting}>
-              <DownloadIcon /> {exporting ? "Exporting…" : "Export CSV"}
-            </Button>
-          </div>
+          <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={state.total} />
+          <Button variant="outline" aria-label="Export CSV" title="Export CSV" className="max-lg:w-9 max-lg:px-0" onClick={exportCsv} disabled={exporting}>
+            <DownloadIcon />
+            <span className="max-lg:sr-only">{exporting ? "Exporting…" : "Export CSV"}</span>
+          </Button>
         </div>
       </div>
 

@@ -240,7 +240,11 @@ export async function exportResponsesCsv(
     if (!res.ok) return { ok: false, message: "Couldn't build the CSV. Try again." }
     const blob = await res.blob()
     const disposition = res.headers.get("content-disposition") ?? ""
-    const name = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? `responses-${formId}.csv`
+    /* The server names the file after the form's link; add today's date (the user's own day), e.g. my-form-2026-11-11.csv */
+    const base = (/filename="?([^";]+)"?/.exec(disposition)?.[1] ?? formId).replace(/\.csv$/i, "")
+    const now = new Date()
+    const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
+    const name = `${base}-${day}.csv`
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url

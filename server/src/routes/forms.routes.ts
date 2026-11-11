@@ -12,8 +12,8 @@ import { formSettingsSchema, settingsChanged, settingsOf, withPublishedSnapshot 
 import type { Block } from "../libs/answers.js"
 import { decodeCursor, encodeCursor } from "../libs/paging.js"
 import { answerText, csvLine } from "../libs/csv.js"
-import { parseResponseFilter, responseFilterWhere, responseSearchWhere } from "../libs/responseFilter.js"
-import { files, formVersions, forms, responses, type Form } from "../schema.js"
+import { parseResponseFilter, responseFilterSchema, responseFilterWhere, responseSearchWhere } from "../libs/responseFilter.js"
+import { files, formVersions, forms, responses, responseViews, type Form } from "../schema.js"
 import { bump, cacheKeys, cached, formChanged, responsesChanged, TTL, version } from "../services/cache.js"
 import { deleteStoredFile, ownStorage, platformStorage, privateFileUrl } from "../services/storage.js"
 
@@ -757,7 +757,7 @@ router.get("/:id/responses/export.csv", async (req, res) => {
 
   const name = (form.slug ?? form.id).replace(/[^a-z0-9_-]/gi, "-")
   res.setHeader("Content-Type", "text/csv; charset=utf-8")
-  res.setHeader("Content-Disposition", `attachment; filename="responses-${name}.csv"`)
+  res.setHeader("Content-Disposition", `attachment; filename="${name}.csv"`)
   res.setHeader("Cache-Control", "no-store")
 
   // Waits when the browser is reading slower than we write, so a big export does not pile up in memory
@@ -867,6 +867,45 @@ router.get("/:id/analytics", async (req, res) => {
     return
   }
   res.json(payload)
+})
+
+// ---------- GET and PUT /forms/:id/responses/view : the search and filter this user last used on this form ----------
+// So the Responses tab opens the way they left it, on any device. One row per user and form; it goes when either does.
+// GET answers { query, filter } ({ query: "", filter: null } if nothing was saved).
+// PUT body { query, filter } (filter null clears it). Answers 204.
+
+const viewSchema = z.object({ query: z.string().trim().max(200), filter: responseFilterSchema.nullable() })
+
+router.get("/:id/responses/view", async (req, res) => {
+  const form = await findOwnForm(req.user!.id, String(req.params.id))
+  if (!form) {
+    res.status(404).json({ error: "Form not found" })
+    return
+  }
+  const [row] = await db
+    .select({ query: responseViews.query, filter: responseViews.filter })
+    .from(responseViews)
+    .where(and(eq(responseViews.userId, req.user!.id), eq(responseViews.formId, form.id)))
+  res.set("Cache-Control", "no-store")
+  res.json({ query: row?.query ?? "", filter: row?.filter ?? null })
+})
+
+router.put("/:id/responses/view", saveLimiter, async (req, res) => {
+  const form = await findOwnForm(req.user!.id, String(req.params.id))
+  if (!form) {
+    res.status(404).json({ error: "Form not found" })
+    return
+  }
+  const body = viewSchema.safeParse(req.body)
+  if (!body.success) {
+    res.status(400).json({ error: "Invalid request", details: z.flattenError(body.error) })
+    return
+  }
+  await db
+    .insert(responseViews)
+    .values({ userId: req.user!.id, formId: form.id, query: body.data.query, filter: body.data.filter })
+    .onConflictDoUpdate({ target: [responseViews.userId, responseViews.formId], set: { query: body.data.query, filter: body.data.filter } })
+  res.status(204).end()
 })
 
 // ---------- DELETE /forms/:id/responses/:rid : remove one response and its files ----------

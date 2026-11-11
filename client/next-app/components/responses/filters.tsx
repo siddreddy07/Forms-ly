@@ -40,7 +40,7 @@ function SelectTrigger({ label, children }: { label: string; children: React.Rea
   return (
     <DropdownMenuTrigger
       aria-label={label}
-      className="flex h-9 w-full items-center justify-between gap-2 rounded-lg border bg-background px-2.5 text-sm outline-none transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-muted"
+      className="flex h-8 w-full items-center justify-between gap-1.5 rounded-md border bg-background px-2 text-[0.8rem] outline-none transition-colors hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-muted"
     >
       <span className="truncate">{children}</span>
       <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -124,7 +124,7 @@ function ValueEditor({ block, condition, onChange }: { block: Block; condition: 
 
   if (op === "between") {
     return (
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {[0, 1].map((i) => (
           <Input
             key={i}
@@ -132,7 +132,7 @@ function ValueEditor({ block, condition, onChange }: { block: Block; condition: 
             inputMode="decimal"
             aria-label={i === 0 ? "From" : "To"}
             placeholder={i === 0 ? "From" : "To"}
-            className="h-9"
+            className="h-8 px-2 text-[0.8rem]"
             value={values[i] === undefined ? "" : String(values[i])}
             onChange={(e) => {
               const next = [...values]
@@ -151,7 +151,7 @@ function ValueEditor({ block, condition, onChange }: { block: Block; condition: 
       inputMode={numeric ? "decimal" : undefined}
       aria-label="Value"
       placeholder={numeric ? "Number" : "Text"}
-      className="h-9"
+      className="h-8 px-2 text-[0.8rem]"
       value={values[0] === undefined ? "" : String(values[0])}
       onChange={(e) => onChange(e.target.value === "" ? [] : [toValue(e.target.value)])}
     />
@@ -174,8 +174,8 @@ function ConditionRow({
   const hasValue = condition.op !== "empty" && condition.op !== "not_empty"
 
   return (
-    <li className="grid gap-2 rounded-xl border bg-card p-2.5">
-      <div className="flex items-center gap-1">
+    <li className="grid gap-1.5 rounded-lg border bg-card p-1.5">
+      <div className="flex items-center gap-0.5">
         <div className="min-w-0 flex-1">
           <MenuSelect
             label="Question"
@@ -187,12 +187,12 @@ function ConditionRow({
             }}
           />
         </div>
-        <Button type="button" variant="ghost" size="icon-sm" aria-label="Remove this condition" onClick={onRemove}>
+        <Button type="button" variant="ghost" size="icon-xs" aria-label="Remove this condition" onClick={onRemove}>
           <XIcon />
         </Button>
       </div>
       {block && (
-        <div className="grid gap-2">
+        <div className="grid gap-1.5">
           <MenuSelect
             label="How to compare"
             value={condition.op}
@@ -247,11 +247,12 @@ export function ResponseFilters({
     <Sheet>
       <SheetTrigger
         aria-label={active ? `Filters, ${active} on` : "Filters"}
-        render={<Button variant="outline" className={"text-sm md:text-lg relative"} />}
+        render={<Button variant="outline" className="relative max-lg:w-9 max-lg:px-0" />}
       >
-        <SlidersHorizontalIcon /> Filters
+        <SlidersHorizontalIcon />
+        <span className="max-lg:sr-only">Filters</span>
         {active > 0 && (
-          <span className="ml-0.5 inline-flex min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background tabular-nums">{active}</span>
+          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-xs font-medium text-background tabular-nums max-lg:absolute max-lg:-top-1.5 max-lg:-right-1.5 max-lg:h-4 max-lg:min-w-4 max-lg:px-1 max-lg:text-[0.65rem] lg:ml-0.5">{active}</span>
         )}
       </SheetTrigger>
       <SheetContent
@@ -261,9 +262,9 @@ export function ResponseFilters({
       >
         <SheetTitle className="sr-only">Filter responses</SheetTitle>
         <SheetDescription className="sr-only">Narrow the table by date, device or answers</SheetDescription>
-        {!wide && <div aria-hidden="true" className="mx-auto mt-2.5 h-1 w-9 rounded-full bg-border" />}
+        {!wide && <div aria-hidden="true" className="mx-auto mt-2 h-1 w-9 rounded-full bg-border" />}
 
-        <div className="flex items-center justify-between px-4 pt-3 pb-1 lg:pt-5">
+        <div className="flex items-center justify-between px-3 pt-1.5 pb-0 lg:pt-3">
           <h2 className="font-display text-lg font-medium tracking-tight">Filters</h2>
           {active > 0 && (
             <Button variant="ghost" size="sm" onClick={() => onChange(emptyFilter)}>
@@ -272,10 +273,10 @@ export function ResponseFilters({
           )}
         </div>
 
-        <div className="grid max-h-[65svh] content-start gap-4 overflow-y-auto px-4 py-3 lg:max-h-none lg:flex-1">
-          <section className="grid gap-2">
+        <div className="grid max-h-[65svh] content-start gap-2.5 overflow-y-auto px-3 py-2 lg:max-h-none lg:flex-1">
+          <section className="grid gap-1.5">
             <p className="text-xs font-medium text-muted-foreground">When</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               <MenuSelect
                 label="Submitted"
                 value={filter.dateRange ?? "any"}
@@ -293,7 +294,7 @@ export function ResponseFilters({
 
           <Separator />
 
-          <section className="grid gap-2">
+          <section className="grid gap-1.5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-medium text-muted-foreground">Answers</p>
               {filter.conditions.length > 1 && (
@@ -305,7 +306,7 @@ export function ResponseFilters({
                       role="radio"
                       aria-checked={filter.match === m}
                       onClick={() => onChange({ ...filter, match: m })}
-                      className={cn("h-7 rounded-md px-2.5 outline-none focus-visible:outline-2 focus-visible:outline-ring", filter.match === m ? "bg-background shadow-sm" : "text-muted-foreground")}
+                      className={cn("h-6 rounded-md px-2 outline-none focus-visible:outline-2 focus-visible:outline-ring", filter.match === m ? "bg-background shadow-sm" : "text-muted-foreground")}
                     >
                       {m === "all" ? "Match all" : "Match any"}
                     </button>
@@ -315,7 +316,7 @@ export function ResponseFilters({
             </div>
 
             {filter.conditions.length > 0 ? (
-              <ul className="grid gap-2">
+              <ul className="grid gap-1.5">
                 {filter.conditions.map((c, i) => (
                   <ConditionRow
                     key={i}
@@ -330,14 +331,14 @@ export function ResponseFilters({
               <p className="text-sm text-muted-foreground">No answer filters yet.</p>
             )}
 
-            <Button type="button" variant="outline" className="w-full border-dashed" onClick={addCondition} disabled={columns.length === 0}>
+            <Button type="button" variant="outline" size="sm" className="h-8 w-full border-dashed" onClick={addCondition} disabled={columns.length === 0}>
               <PlusIcon /> Add a filter
             </Button>
           </section>
         </div>
 
-        <SheetFooter className="border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <SheetClose render={<Button size="lg" className="w-full" />}>
+        <SheetFooter className="border-t px-3 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+          <SheetClose render={<Button size="sm" className="h-8 w-full" />}>
             Show {shown} {shown === 1 ? "response" : "responses"}
           </SheetClose>
         </SheetFooter>

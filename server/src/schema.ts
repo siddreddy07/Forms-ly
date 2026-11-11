@@ -189,6 +189,26 @@ export const responses = pgTable(
   (t) => [index("responses_form_submitted_idx").on(t.formId, t.submittedAt)]
 )
 
+// ---------- response_views: the search and filter a user last used on a form's Responses tab ----------
+// One row per (user, form), so the same view comes back on any device. `filter` is the filter panel's filter.
+
+export const responseViews = pgTable(
+  "response_views",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    formId: uuid("form_id")
+      .notNull()
+      .references(() => forms.id, { onDelete: "cascade" }),
+    query: text("query").notNull().default(""),
+    filter: jsonb("filter").$type<Record<string, unknown>>(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [unique("response_views_user_form_unique").on(t.userId, t.formId)]
+)
+
 // ---------- files: uploads attached to a response (file upload questions) ----------
 
 export const files = pgTable(

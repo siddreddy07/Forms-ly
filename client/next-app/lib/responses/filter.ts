@@ -101,3 +101,19 @@ export function opsFor(block: Block): { op: FilterOp; label: string }[] {
       ]
   }
 }
+
+/* The filter as text for the page address, and back. Anything missing, broken or edited by hand gives an empty filter. */
+export function filterToParam(filter: ResponseFilter): string {
+  const clean = { ...filter, conditions: filter.conditions.filter(isComplete) }
+  return activeCount(clean) === 0 ? "" : JSON.stringify(clean)
+}
+
+export function filterFromParam(text: string): ResponseFilter {
+  if (!text) return emptyFilter
+  try {
+    const parsed = responseFilterSchema.safeParse(JSON.parse(text))
+    return parsed.success ? parsed.data : emptyFilter
+  } catch {
+    return emptyFilter
+  }
+}
