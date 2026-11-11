@@ -11,6 +11,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "24"
+      # Turns off the /dev tools, which must never run in production.
+      - key: NODE_ENV
+        value: production
       # The deployed web app's address (no trailing slash), so the API accepts its requests.
       - key: CLIENT_URL
         sync: false
