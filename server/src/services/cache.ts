@@ -15,10 +15,10 @@ if (!redis) console.log("[cache] disabled (set UPSTASH_REDIS_REST_URL and UPSTAS
    anything we forget to invalidate (or a change made by another process). */
 export const TTL = {
   formList: 30,
-  form: 60,
+  form: 60 * 60,
   publicForm: 30,
-  responses: 30,
-  analytics: 60,
+  responses: 5 * 60,
+  analytics: 5 * 60,
 } as const
 
 /* Version keys stay a week past the last write. Any cached payload is long gone by then, so a reset to 0
