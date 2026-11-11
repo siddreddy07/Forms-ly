@@ -287,6 +287,47 @@
 [data-sonner-toast].cn-toast [data-button]:hover { filter: brightness(1.06); transform: translateY(-1px); }
 [data-sonner-toast].cn-toast [data-button]:active { transform: scale(0.96); }
 
+/* Compact toast with a solid, fully rounded, non-animated action button (publish blocked by a past closing time) */
+[data-sonner-toast] .toast-pill-action[data-button],
+[data-sonner-toast] .toast-pill-action[data-button]:hover,
+[data-sonner-toast] .toast-pill-action[data-button]:active,
+[data-sonner-toast] .toast-pill-action[data-button]:focus-visible {
+  height: 1.5rem !important;
+  padding: 0 0.7rem !important;
+  border-radius: 9999px !important;
+  border: 0 !important;
+  outline: none;
+  font-size: 0.75rem !important;
+  background: var(--foreground) !important;
+  background-image: none !important;
+  color: var(--background) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  transition: none !important;
+  transform: none !important;
+  filter: none !important;
+  opacity: 1;
+}
+
+[data-sonner-toast] .toast-pill-action[data-button],
+[data-sonner-toast] .toast-pill-action[data-button] * {
+  animation: none !important;
+  transition: none !important;
+  transform: none !important;
+  filter: none !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+  font-weight: 600 !important;
+}
+[data-sonner-toast] .toast-pill-action[data-button]:hover,
+[data-sonner-toast] .toast-pill-action[data-button]:hover *,
+[data-sonner-toast] .toast-pill-action[data-button]:active * {
+  background: var(--foreground) !important;
+  color: var(--background) !important;
+  opacity: 1 !important;
+  transform: none !important;
+}
+
 /* A soft liquid arrival: the toast eases in from a blur */
 @keyframes toast-liquid-in {
   from { filter: blur(10px); }

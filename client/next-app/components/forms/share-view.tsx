@@ -88,10 +88,14 @@ export function ShareView({ formId }: { formId: string }) {
     }
     /* A closing time that has already passed would put the form live as "closed". Make them set a new one first. */
     if (settings.closeAt && new Date(settings.closeAt).getTime() <= Date.now()) {
-      toast.error(`Your closing time (${dateTime(settings.closeAt)}) has already passed.`, {
-        description: "Set a new date and time in Settings and save, then publish again.",
-        action: { label: "Go to Settings", onClick: () => router.push(`/forms/${formId}/settings`) },
-        duration: 10000,
+      toast.error("Closing time has passed. Set a new one.", {
+        action: { label: "Settings", onClick: () => router.push(`/forms/${formId}/settings`) },
+        duration: 8000,
+        classNames: {
+          toast: "cn-toast !min-h-0 !gap-2 !py-1.5 !pr-1.5 !pl-3 !text-xs",
+          title: "!text-xs !leading-tight",
+          actionButton: "toast-pill-action",
+        },
       })
       return
     }
