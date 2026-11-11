@@ -8,17 +8,8 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
-  // Public settings only (they are also baked into the browser code at build time). Secrets such as
-  // CLERK_SECRET_KEY are never listed here: set them with `npx wrangler secret put`.
-  "vars": {
-    "NEXT_PUBLIC_API_URL": "https://forms-ly.onrender.com",
-    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY": "pk_test_YWRlcXVhdGUtZ29ibGluLTgxOC5jbGVyay5hY2NvdW50cy5kZXYk",
-    "NEXT_PUBLIC_CLERK_SIGN_IN_URL": "/sign-in",
-    "NEXT_PUBLIC_CLERK_SIGN_UP_URL": "/sign-up",
-    "NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL": "/dashboard",
-    "NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL": "/dashboard"
-  },
-  // Keep any other variables and secrets set in the Cloudflare dashboard when deploying from here.
+  // No keys or addresses live in this file. NEXT_PUBLIC_* values come from .env.production.local at build time, and
+  // secrets are set with `npx wrangler secret put`. Anything set in the Cloudflare dashboard is kept on deploy.
   "keep_vars": true,
   "observability": { "enabled": true }
 }
