@@ -46,6 +46,20 @@
     --radius-2xl: calc(var(--radius) * 1.8);
     --radius-3xl: calc(var(--radius) * 2.2);
     --radius-4xl: calc(var(--radius) * 2.6);
+    --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
+    --color-color-5: var(--color-5);
+    --color-color-4: var(--color-4);
+    --color-color-3: var(--color-3);
+    --color-color-2: var(--color-2);
+    --color-color-1: var(--color-1);
+  @keyframes rainbow {
+  0% {
+    background-position: 0%;
+        }
+  100% {
+    background-position: 200%;
+        }
+    }
 }
 
 :root {
@@ -83,6 +97,11 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    --color-1: oklch(66.2% 0.225 25.9);
+    --color-2: oklch(60.4% 0.26 302);
+    --color-3: oklch(69.6% 0.165 251);
+    --color-4: oklch(80.2% 0.134 225);
+    --color-5: oklch(90.7% 0.231 133);
 }
 
 .dark {
@@ -118,6 +137,11 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --color-1: oklch(66.2% 0.225 25.9);
+    --color-2: oklch(60.4% 0.26 302);
+    --color-3: oklch(69.6% 0.165 251);
+    --color-4: oklch(80.2% 0.134 225);
+    --color-5: oklch(90.7% 0.231 133);
 }
 
 @layer base {
@@ -131,7 +155,6 @@
     @apply font-sans;
     }
 }
-
 
 /* ---------- Liquid glass toasts (sonner) ----------
    A frosted, bright-edged pill: the page behind it is blurred and boosted in colour, a thin light rim
@@ -324,14 +347,29 @@
   opacity: 0.55;
 }
 .dark .warm-sky { opacity: 0.4; }
-.warm-sky-hero { opacity: 0.9; }
-.dark .warm-sky-hero { opacity: 0.6; }
-/* On the home page it opens upward from the bottom of the header, once, as the page appears. */
-@keyframes warm-open {
-  from { clip-path: inset(100% 0 0 0); opacity: 0; }
-  to { clip-path: inset(0 0 0 0); }
+/* Home page: one soft glow, brightest in the middle and fading evenly in every direction (no edge, no outline).
+   The box itself never moves. Only the gradient inside it rises (--sun goes 0 to 1), starting low, small and deep orange,
+   so no box edge is ever seen. */
+@property --sun { syntax: "<number>"; inherits: false; initial-value: 1; }
+.warm-sky-hero {
+  --sun: 1;
+  background: radial-gradient(ellipse calc(85% * (0.5 + 0.5 * var(--sun))) calc(85% * (0.4 + 0.6 * var(--sun))) at 50% calc(72% + (1 - var(--sun)) * 75%),
+    color-mix(in oklab, var(--warm) 88%, white) 0%,
+    color-mix(in oklab, var(--warm) 68%, transparent) 16%,
+    color-mix(in oklab, var(--warm) 46%, transparent) 32%,
+    color-mix(in oklab, var(--warm) 27%, transparent) 48%,
+    color-mix(in oklab, var(--warm) 13%, transparent) 64%,
+    color-mix(in oklab, var(--warm) 5%, transparent) 80%,
+    transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 40%, transparent 100%);
+  animation: warm-rise 3.6s cubic-bezier(0.22, 0.7, 0.2, 1) both;
 }
-.warm-sky-hero { animation: warm-open 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+/* Sunrise: starts deep orange and low, then warms to gold as it climbs and spreads. */
+@keyframes warm-rise {
+  0% { --sun: 0; filter: hue-rotate(-22deg) saturate(1.7) brightness(0.9); }
+  100% { --sun: 1; filter: none; }
+}
 ::selection { background: color-mix(in oklab, var(--warm) 40%, transparent); }
 @media (prefers-reduced-motion: reduce) {
   .warm-sky-hero { animation: none; }
@@ -344,4 +382,3 @@
   letter-spacing: -0.035em;
   line-height: 1;
 }
-

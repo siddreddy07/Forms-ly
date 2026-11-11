@@ -1,4 +1,4 @@
-import { backgroundCss, defaultDesign, parseDesign } from "@/lib/api/mock-design"
+import { backgroundGradient, defaultDesign, parseDesign } from "@/lib/api/mock-design"
 import type { FormPreview as Preview } from "@/lib/api/types"
 
 /* The top of the real form, cut off at the bottom: a page in the form's own background colour with the form sitting
@@ -32,14 +32,14 @@ function shapeFor(type: string, options: string[]) {
 
 function FormPreview({ preview }: { preview?: Preview }) {
   const design = preview?.design ? parseDesign(JSON.stringify(preview.design)) : defaultDesign
-  const tint = backgroundCss(design)
+  const tint = backgroundGradient(design)
   const accent = design.accent ?? undefined
   const blocks = (preview?.blocks ?? []).filter((b) => b.type !== "divider")
 
   return (
     <div
       className="relative h-full w-full overflow-hidden bg-muted px-[12%] pt-[9%]"
-      style={tint ? { backgroundColor: tint } : undefined}
+      style={tint ? { backgroundImage: tint } : undefined}
       aria-hidden="true"
     >
       <div className="grid gap-2 rounded-t-lg border border-b-0 bg-card p-3 shadow-sm">

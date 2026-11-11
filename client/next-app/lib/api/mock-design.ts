@@ -59,7 +59,7 @@ export type WidthId = (typeof widths)[number]["id"]
 export type ThankYou = { title: string; message: string; buttonLabel: string; buttonUrl: string; redirectUrl: string }
 
 export type FormDesign = {
-  /* The page behind the form. The form card itself is never tinted. */
+  /* The page colour: a soft gradient along the bottom of the page behind the form. The form card itself is never tinted. */
   background: { color: BackgroundColorId; opacity: BackgroundOpacity } | null
   font: FontId
   accent: string | null
@@ -100,6 +100,13 @@ export function backgroundCss(design: FormDesign): string | undefined {
   return c ? `rgb(${c.rgb} / ${b.opacity}%)` : undefined
 }
 
+/* The page colour is only a soft glow along the bottom of the page: full colour at the very bottom, fading to nothing
+   about a fifth of the way up. The rest of the page keeps its normal background. */
+export function backgroundGradient(design: FormDesign): string | undefined {
+  const bg = backgroundCss(design)
+  return bg ? `linear-gradient(to top, ${bg} 0%, color-mix(in oklab, ${bg} 40%, transparent) 7%, transparent 20%)` : undefined
+}
+
 /* Only web addresses are allowed in links and images. */
 export const isWebUrl = (value: string) => /^https?:\/\/\S+$/i.test(value.trim())
 
@@ -117,8 +124,8 @@ export function designStyle(design: FormDesign | null): CSSProperties {
   if (!design) return {}
   const style: Record<string, string> = {}
 
-  const bg = backgroundCss(design)
-  if (bg) style.backgroundColor = bg
+  const bg = backgroundGradient(design)
+  if (bg) Object.assign(style, { backgroundImage: bg, backgroundRepeat: "no-repeat" })
 
   const family = fonts.find((f) => f.id === design.font)?.family
   if (family) Object.assign(style, { "--font-sans": family, "--font-display": family, fontFamily: family })
