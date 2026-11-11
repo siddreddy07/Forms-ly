@@ -9,9 +9,8 @@ import { FilterBar, FilterDrawer, type FolderFilter, type SortKey } from "@/comp
 import type { FormActions } from "@/components/dashboard/form-actions-menu"
 import { FormCard } from "@/components/dashboard/form-card"
 import { NewFormDialog } from "@/components/dashboard/new-form-dialog"
-import { Skeleton } from "@/components/skeletons/skeleton"
 
-import { DashboardFormsFixture } from "@/components/skeletons/fixtures"
+import { FormsGridSkeleton } from "@/components/dashboard/forms-skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { documentForTemplate, type FormListResponse, type FormResponse } from "@/lib/api/forms"
@@ -33,14 +32,14 @@ function SearchField({
 }) {
   return (
     <div className={`relative ${className ?? ""}`}>
-      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground lg:left-2.5 lg:size-3.5" />
       <Input
         type="search"
         aria-label="Search forms"
         placeholder="Search forms"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 rounded-lg bg-background pl-9"
+        className="h-9 rounded-lg bg-background pl-9 text-[0.85rem] lg:h-8 lg:text-[0.8rem]"
       />
     </div>
   )
@@ -257,39 +256,37 @@ function DashboardView() {
 
   return (
     <div className="min-h-[calc(100svh+8rem)] lg:min-h-0">
-      <div className="mx-auto w-full max-w-7xl px-4 pt-6 pb-5 sm:px-6 sm:pt-10 sm:pb-6 lg:pb-8">
+      <div className="mx-auto w-full max-w-7xl px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 lg:pt-5 lg:pb-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">
+            <h1 className="font-display text-xl font-medium tracking-tight sm:text-2xl lg:text-xl">
               Your forms
             </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground">{counts.all} forms</p>
+            <p className="text-xs text-muted-foreground">{counts.all} {counts.all === 1 ? "form" : "forms"}</p>
           </div>
           <div className="lg:hidden">
             <NewFormDialog onCreate={createForm} />
           </div>
         </div>
-        <div ref={searchRef} className="mt-5 flex items-center gap-2 lg:hidden">
+        <div ref={searchRef} className="mt-3 flex items-center gap-2 lg:hidden">
           <SearchField value={query} onChange={setQuery} className="flex-1" />
           <FilterDrawer {...filterProps} />
         </div>
       </div>
 
       {/* Desktop: toolbar sticks under the app header while the grid scrolls */}
-      <div className="sticky top-14 z-20 hidden border-y bg-background/85 backdrop-blur-xl lg:block">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
-          <SearchField value={query} onChange={setQuery} className="w-full max-w-sm" />
+      <div className="sticky top-12 z-20 hidden border-y bg-background/85 backdrop-blur-xl lg:block">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-2">
+          <SearchField value={query} onChange={setQuery} className="w-full max-w-xs" />
           <NewFormDialog onCreate={createForm} />
         </div>
       </div>
 
-      <div className="@container mx-auto w-full max-w-7xl px-4 pb-28 sm:px-6 lg:pt-2 lg:pb-12">
+      <div className="@container mx-auto w-full max-w-7xl px-4 pb-24 sm:px-6 lg:pt-3 lg:pb-8">
         <FilterBar {...filterProps} />
         {loadState === "loading" ? (
           <div className="mt-4" aria-busy="true" aria-label="Loading your forms">
-            <Skeleton name="dashboard-forms" loading fixture={<DashboardFormsFixture />}>
-              <DashboardFormsFixture />
-            </Skeleton>
+            <FormsGridSkeleton />
           </div>
         ) : loadState === "error" ? (
           <div className="mt-16 grid justify-items-center gap-3 text-center">
@@ -306,7 +303,7 @@ function DashboardView() {
           </div>
         ) : items.length > 0 ? (
           <>
-            <ul className="mt-0 grid gap-3 lg:mt-4 @min-[592px]:grid-cols-2 @min-[592px]:gap-5 @min-[976px]:grid-cols-3 @min-[1232px]:grid-cols-4">
+            <ul className="mt-0 grid gap-2.5 lg:mt-3 @min-[592px]:grid-cols-2 @min-[592px]:gap-3 @min-[760px]:grid-cols-3 @min-[1024px]:grid-cols-4 @min-[1024px]:gap-4 @min-[1200px]:grid-cols-5">
               {items.map((form) => (
                 <li key={form.id} className="h-full">
                   <FormCard form={form} actions={actions} />

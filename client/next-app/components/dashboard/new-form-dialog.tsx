@@ -69,9 +69,9 @@ function NewFormDialog({
       <DialogTrigger
         render={
           compact ? (
-            <Button size="icon-lg" aria-label="New form" className="size-10" />
+            <Button size="icon-lg" aria-label="New form" className="size-9" />
           ) : (
-            <Button size="lg" className="h-10" />
+            <Button size="lg" className="h-9 px-3.5 text-[0.85rem] lg:h-8 lg:px-3 lg:text-[0.8rem]" />
           )
         }
       >

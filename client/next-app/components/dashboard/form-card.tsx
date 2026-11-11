@@ -16,14 +16,23 @@ function FormCard({
   form: FormSummary
   actions: FormActions
 }) {
+  const badge = (
+    <Badge variant="secondary" className="h-5 rounded-md! px-1.5 text-[0.7rem]">
+      {form.archived ? "Archived" : statusLabel[form.status]}
+    </Badge>
+  )
   return (
-    <div className="group relative flex h-[6.75rem] flex-row overflow-hidden rounded-xl border bg-card transition-colors duration-200 focus-within:border-foreground/30 hover:border-foreground/30 sm:h-full sm:flex-col">
-      <div className="w-24 shrink-0 sm:aspect-[16/10] sm:w-auto">
-        <FormPreview preview={form.preview} />
+    <div className="group relative flex h-[5.25rem] flex-row overflow-hidden rounded-xl border bg-card transition-colors duration-200 focus-within:border-foreground/30 hover:border-foreground/30 @min-[592px]:h-full @min-[592px]:flex-col">
+      {/* Phone: a short list row with a small picture on the left. Tablet and desktop: a small card with the picture across the top. */}
+      <div className="relative w-24 shrink-0 overflow-hidden border-r @min-[592px]:aspect-[16/9] @min-[592px]:w-auto @min-[592px]:border-r-0 @min-[592px]:border-b">
+        {/* Only the top of the form is shown: it is clipped to this box and fades out at the bottom. */}
+        <div className="absolute inset-0">
+          <FormPreview preview={form.preview} />
+        </div>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 p-3 sm:h-28 sm:flex-none sm:p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h2 className="min-w-0 truncate font-display text-base leading-tight font-medium tracking-tight sm:text-lg">
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3 py-2 @min-[592px]:justify-start @min-[592px]:gap-1.5 @min-[592px]:p-2.5 lg:p-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="min-w-0 truncate font-display text-sm leading-tight font-medium tracking-tight">
             {/* Stretched link: the whole card opens the form, the menu sits above it */}
             <Link
               href={`/forms/${form.id}/build`}
@@ -34,7 +43,7 @@ function FormCard({
           </h2>
           <FormActionsMenu form={form} actions={actions} />
         </div>
-        <div className="flex items-center gap-x-3 overflow-hidden text-xs whitespace-nowrap text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <MessageSquareIcon className="size-3.5" aria-hidden="true" />
             <span className="sr-only">Responses:</span>
@@ -45,12 +54,9 @@ function FormCard({
             <span className="sr-only">Edited</span>
             {timeAgo(form.updatedAt)}
           </span>
+          <span className="@min-[592px]:hidden">{badge}</span>
         </div>
-        <div className="mt-auto">
-          <Badge variant="secondary" className="rounded-md!">
-            {form.archived ? "Archived" : statusLabel[form.status]}
-          </Badge>
-        </div>
+        <div className="mt-auto hidden @min-[592px]:block">{badge}</div>
       </div>
     </div>
   )

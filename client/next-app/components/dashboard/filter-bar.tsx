@@ -71,7 +71,7 @@ function FilterBar({
               aria-selected={active}
               onClick={() => onFilter(c.key)}
               className={cn(
-                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[0.8rem] transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 active
                   ? "border-foreground bg-foreground text-background"
                   : "bg-background text-muted-foreground hover:text-foreground"
@@ -89,9 +89,9 @@ function FilterBar({
       <DropdownMenu>
         <DropdownMenuTrigger
           aria-label={`Sort: ${sortLabels[sort]}`}
-          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-background px-2.5 text-sm text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+          className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border bg-background px-2 text-[0.8rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         >
-          <ArrowUpDownIcon className="size-4" />
+          <ArrowUpDownIcon className="size-3.5" />
           <span className="hidden sm:inline">{sortLabels[sort]}</span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-44">
@@ -129,7 +129,7 @@ function FilterDrawer({ filter, onFilter, counts, sort, onSort }: FilterProps) {
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger
         aria-label="Filter and sort"
-        className="relative inline-flex size-10 shrink-0 items-center justify-center rounded-lg border bg-background outline-none transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="relative inline-flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background outline-none transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         <SlidersHorizontalIcon className="size-4" />
         {active && (
@@ -194,7 +194,7 @@ function FilterDrawer({ filter, onFilter, counts, sort, onSort }: FilterProps) {
         </div>
 
         <SheetFooter className="border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <SheetClose render={<Button size="lg" className="w-full" />}>Done</SheetClose>
+          <SheetClose render={<Button className="w-full" />}>Done</SheetClose>
         </SheetFooter>
       </SheetContent>
     </Sheet>

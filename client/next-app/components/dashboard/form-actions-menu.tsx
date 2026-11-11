@@ -41,7 +41,7 @@ function FormActionsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={`Actions for ${form.title}`}
-        className="relative z-10 -mt-1 -mr-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-muted"
+        className="relative z-10 -mr-1.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring aria-expanded:bg-muted"
       >
         <MoreHorizontalIcon className="size-4" />
       </DropdownMenuTrigger>

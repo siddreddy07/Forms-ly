@@ -11,10 +11,10 @@ import { createClientIntake } from "@/lib/schema"
    Widths are set on purpose so the lines are different lengths, like real text. */
 function CardFixture({ title, line1, line2 }: { title: string; line1: string; line2: string }) {
   return (
-    <div className="flex h-[6.75rem] gap-3 @min-[592px]:h-auto @min-[592px]:flex-col">
-      <div className="w-24 shrink-0 rounded-xl bg-muted @min-[592px]:aspect-[16/10] @min-[592px]:w-auto" />
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-2 @min-[592px]:justify-start @min-[592px]:px-1 @min-[592px]:pb-1">
-        <h2 className="w-4/5 font-display text-base leading-tight font-medium tracking-tight @min-[592px]:text-lg">{title}</h2>
+    <div className="flex h-[5.25rem] gap-3 @min-[1024px]:h-auto @min-[1024px]:flex-col @min-[1024px]:gap-0">
+      <div className="w-24 shrink-0 rounded-xl bg-muted @min-[1024px]:aspect-[16/9] @min-[1024px]:w-auto" />
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 @min-[1024px]:justify-start @min-[1024px]:px-1 @min-[1024px]:pt-3 @min-[1024px]:pb-1">
+        <h2 className="w-4/5 font-display text-base leading-snug font-medium tracking-tight">{title}</h2>
         <p className="w-2/5 text-xs">{line1}</p>
         <p className="w-1/3 text-xs">{line2}</p>
       </div>
@@ -38,7 +38,7 @@ const sampleCards = [
 export function DashboardFormsFixture() {
   return (
     <div className="@container">
-      <ul className="grid gap-3 @min-[592px]:grid-cols-2 @min-[592px]:gap-x-5 @min-[592px]:gap-y-7 @min-[976px]:grid-cols-3 @min-[1232px]:grid-cols-4 @max-[975px]:[&>li:nth-child(n+5)]:hidden @max-[1231px]:[&>li:nth-child(n+7)]:hidden">
+      <ul className="grid gap-2.5 @min-[592px]:grid-cols-2 @min-[592px]:gap-3 @min-[1024px]:grid-cols-4 @min-[1024px]:gap-4 @min-[1200px]:grid-cols-5 @max-[591px]:[&>li:nth-child(n+5)]:hidden @max-[1023px]:[&>li:nth-child(n+7)]:hidden">
         {sampleCards.map((card) => (
           <li key={card.title}>
             <CardFixture {...card} />
