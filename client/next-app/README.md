@@ -1,21 +1,10 @@
-# Next.js template
+# Formly web app
 
-This is a Next.js template with shadcn/ui.
-
-## Adding components
-
-To add components to your app, run the following command:
+The Next.js client for Formly. Setup, scripts and environment variables are in the [root README](../../README.md).
 
 ```bash
-npx shadcn@latest add button
+npm install
+npm run dev   # http://localhost:3000
 ```
 
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+The API it talks to lives in `../../server`; set `NEXT_PUBLIC_API_URL` in `.env.local` to its address.

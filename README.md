@@ -1,24 +1,66 @@
 # Formly
 
-A form builder that replaces Google Forms for companies. Drag-and-drop builder, a fast public form renderer, responses and analytics.
+A form builder for client work. Drag blocks into place, share a link, and see exactly where people drop off.
 
-The name, logo and auth provider are not final. Placeholders live in `client/next-app/lib/brand.ts`.
+**What you can do**
 
-## Structure
+- **Build** forms with drag-and-drop blocks, multiple pages and conditional logic
+- **Design** the look: page colour, accent, font, corners and width
+- **Share** a public link, with an optional closing date or a 4-digit code
+- **Collect** answers, including file uploads, in a searchable, filterable table you can export as CSV
+- **Analyse** views, completions and drop-off
 
-- `client/next-app`: Next.js 16 (App Router), TypeScript, Tailwind v4, shadcn/ui on Base UI
-- `server`: backend, not started yet
+## Project layout
 
-## Run the client
+| Folder | What it is |
+|---|---|
+| `client/next-app` | The web app: Next.js 16 (App Router), TypeScript, Tailwind v4, shadcn/ui |
+| `server` | The API: Express, Drizzle ORM, Postgres on Neon, Clerk for sign-in |
+
+Optional pieces: Upstash Redis (read cache) and ImageKit (file uploads).
+
+## Run it locally
+
+You need Node.js, a [Clerk](https://clerk.com) app and a [Neon](https://neon.tech) Postgres database.
+
+**1. Server**
 
 ```bash
-cd client/next-app
+cd server
+cp .env.example .env     # fill in Clerk and Neon; the rest is optional
 npm install
+npm run db:migrate       # create the tables
 npm run dev
 ```
 
-Other scripts: `npm run typecheck`, `npm run lint`, `npm run build`.
+**2. Client**
 
-## Status
+```bash
+cd client/next-app
+cp .env.example .env.local   # fill in Clerk and NEXT_PUBLIC_API_URL (the server's address)
+npm install
+npm run dev                  # http://localhost:3000
+```
 
-Built so far: marketing home page and navigation, dashboard (create, duplicate, archive, delete with undo, folders, sort, search), form workspace shell with its six tabs, and the form schema with validation and logic. Data is mocked and not saved yet.
+Set `CLIENT_URL` in `server/.env` to the client's address, so the API accepts its requests.
+
+## Useful scripts
+
+| Where | Command | What it does |
+|---|---|---|
+| client | `npm run typecheck`, `lint`, `build` | Check and build the app |
+| server | `npm run typecheck`, `build` | Check and build the API |
+| server | `npm run db:generate` | Create a migration after changing `src/schema.ts` |
+| server | `npm run db:migrate` | Apply migrations |
+| server | `npm run db:studio` | Browse the database |
+
+## Optional services
+
+- **Redis cache:** set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN`. Without them every read goes straight to Postgres.
+- **File uploads:** set the `IMAGEKIT_*` keys and `STORAGE_ENCRYPTION_KEY`. Without them uploads are off.
+
+## More docs
+
+`Project.md` (the product), `FrontendPlan.md` and `FrontendDesign.md` (the client), `BackendPlan.md` and `server/database.mmd` (the server and database diagram).
+
+The name, logo and brand colours live in `client/next-app/lib/brand.ts`.
