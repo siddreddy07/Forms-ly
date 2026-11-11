@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { CheckIcon, CopyIcon, ExternalLinkIcon, EyeIcon, GlobeIcon, LockIcon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -67,7 +68,8 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString(undefined, { date
 
 /* Publish, update, unpublish and public/private. All of it lives on the server; this page only asks and shows. */
 export function ShareView({ formId }: { formId: string }) {
-  const { form, version, publishInfo: info, publish, unpublish, setAccess } = useFormGate()
+  const { form, version, publishInfo: info, publish, unpublish, setAccess, settings } = useFormGate()
+  const router = useRouter()
   const origin = useOrigin()
   const [busy, setBusy] = React.useState<"publish" | "unpublish" | "access" | null>(null)
 
@@ -82,6 +84,15 @@ export function ShareView({ formId }: { formId: string }) {
     /* The builder keeps unsaved edits on this device until they are saved; those would not be in what we publish. */
     if (readDraft(formId)?.dirty) {
       toast.message("You have unsaved changes. Save them in the builder first.")
+      return
+    }
+    /* A closing time that has already passed would put the form live as "closed". Make them set a new one first. */
+    if (settings.closeAt && new Date(settings.closeAt).getTime() <= Date.now()) {
+      toast.error(`Your closing time (${dateTime(settings.closeAt)}) has already passed.`, {
+        description: "Set a new date and time in Settings and save, then publish again.",
+        action: { label: "Go to Settings", onClick: () => router.push(`/forms/${formId}/settings`) },
+        duration: 10000,
+      })
       return
     }
     setBusy("publish")
