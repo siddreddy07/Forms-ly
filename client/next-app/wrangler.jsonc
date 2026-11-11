@@ -8,5 +8,7 @@
     "directory": ".open-next/assets",
     "binding": "ASSETS"
   },
+  // Keep variables and secrets set in the Cloudflare dashboard when deploying from here.
+  "keep_vars": true,
   "observability": { "enabled": true }
 }
