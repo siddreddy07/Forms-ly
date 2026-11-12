@@ -240,8 +240,10 @@ export async function exportResponsesXlsx(
     if (!res.ok) return { ok: false, message: "Couldn't build the spreadsheet. Try again." }
     const blob = await res.blob()
     const disposition = res.headers.get("content-disposition") ?? ""
-    /* The server names the file after the form's link; add today's date (the user's own day), e.g. my-form-2026-11-11.xlsx */
-    const base = (/filename="?([^";]+)"?/.exec(disposition)?.[1] ?? formId).replace(/\.xlsx$/i, "")
+    /* The server names the file after the form's title; add today's date (the user's own day), e.g. My Form-2026-11-11.xlsx */
+    const star = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1]
+    const plain = /filename="?([^";]+)"?/.exec(disposition)?.[1]
+    const base = (star ? decodeURIComponent(star) : (plain ?? "responses")).replace(/\.xlsx$/i, "")
     const now = new Date()
     const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
     const name = `${base}-${day}.xlsx`

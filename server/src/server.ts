@@ -14,7 +14,7 @@ import storageRoutes from "./routes/storage.routes.js"
 const app = express()
 
 // Let the Next.js app (a different address) call this API
-app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000" }))
+app.use(cors({ origin: process.env.CLIENT_URL || "http://localhost:3000", exposedHeaders: ["Content-Disposition"] }))
 app.use(express.json({ limit: "2mb" }))
 // Reads the Clerk session on every request (never blocks by itself)
 app.use(clerkMiddleware())
