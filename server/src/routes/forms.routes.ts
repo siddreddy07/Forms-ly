@@ -757,7 +757,7 @@ router.get("/:id/responses/export.xlsx", async (req, res) => {
   }
 
   // Named after the form's title, e.g. "Customer Survey". Characters a file name cannot hold are dropped.
-  const title = form.title.replace(/[\/:*?"<>|\x00-\x1f]/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "responses"
+  const title = form.title.replace(/[\\/:*?"<>|\x00-\x1f]/g, "").replace(/\s+/g, " ").trim().slice(0, 80) || "responses"
   const ascii = title.replace(/[^\x20-\x7e]/g, "_")
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
   res.setHeader("Content-Disposition", `attachment; filename="${ascii}.xlsx"; filename*=UTF-8''${encodeURIComponent(title)}.xlsx`)
