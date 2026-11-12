@@ -11,7 +11,8 @@ import { formFilterFields, nextFilterFields, responseColumns } from "../libs/fil
 import { formSettingsSchema, settingsChanged, settingsOf, withPublishedSnapshot } from "../libs/formSettings.js"
 import type { Block } from "../libs/answers.js"
 import { decodeCursor, encodeCursor } from "../libs/paging.js"
-import { answerText, csvLine } from "../libs/csv.js"
+import ExcelJS from "exceljs"
+import { answerText } from "../libs/csv.js"
 import { parseResponseFilter, responseFilterSchema, responseFilterWhere, responseSearchWhere } from "../libs/responseFilter.js"
 import { files, formVersions, forms, responses, responseViews, type Form } from "../schema.js"
 import { bump, cacheKeys, cached, formChanged, responsesChanged, TTL, version } from "../services/cache.js"
@@ -730,13 +731,13 @@ router.get("/:id/responses", async (req, res) => {
   res.json(payload)
 })
 
-// ---------- GET /forms/:id/responses/export.csv : every response, ignoring pages ----------
-// Same ?q= and ?filter= as the table, so the file holds exactly what the table is showing. Streamed in batches so a
-// form with many responses never has to fit in memory.
+// ---------- GET /forms/:id/responses/export.xlsx : every response, ignoring pages ----------
+// Same ?q= and ?filter= as the table, so the file holds exactly what the table is showing. Written row by row straight
+// into the response, so a form with many responses never has to fit in memory.
 
 const EXPORT_BATCH = 1000
 
-router.get("/:id/responses/export.csv", async (req, res) => {
+router.get("/:id/responses/export.xlsx", async (req, res) => {
   const form = await findOwnForm(req.user!.id, String(req.params.id))
   if (!form) {
     res.status(404).json({ error: "Form not found" })
@@ -756,28 +757,20 @@ router.get("/:id/responses/export.csv", async (req, res) => {
   }
 
   const name = (form.slug ?? form.id).replace(/[^a-z0-9_-]/gi, "-")
-  res.setHeader("Content-Type", "text/csv; charset=utf-8")
-  res.setHeader("Content-Disposition", `attachment; filename="${name}.csv"`)
+  res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+  res.setHeader("Content-Disposition", `attachment; filename="${name}.xlsx"`)
   res.setHeader("Cache-Control", "no-store")
 
-  // Waits when the browser is reading slower than we write, so a big export does not pile up in memory
-  const write = (chunk: string) =>
-    new Promise<void>((resolve, reject) => {
-      if (res.write(chunk)) return resolve()
-      const onDrain = () => {
-        res.off("error", onError)
-        resolve()
-      }
-      const onError = (error: Error) => {
-        res.off("drain", onDrain)
-        reject(error)
-      }
-      res.once("drain", onDrain)
-      res.once("error", onError)
-    })
-
   try {
-    await write(`\uFEFF${csvLine(["Submitted", ...scope.columns.map((c) => c.label || "Untitled question")])}`)
+    const workbook = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: res, useStyles: true })
+    const sheet = workbook.addWorksheet("Responses", { views: [{ state: "frozen", ySplit: 1 }] })
+    sheet.columns = [
+      { header: "Submitted", key: "submitted", width: 20, style: { numFmt: "yyyy-mm-dd hh:mm" } },
+      ...scope.columns.map((c, i) => ({ header: c.label || "Untitled question", key: `c${i}`, width: 28 })),
+    ]
+    const header = sheet.getRow(1)
+    header.font = { bold: true }
+    header.commit()
 
     // The rows after the last batch. Typed on purpose: the loop below feeds it back in.
     const afterCursor = (at: { v: string; id: string } | null): SQL | undefined =>
@@ -794,13 +787,15 @@ router.get("/:id/responses/export.csv", async (req, res) => {
         .limit(EXPORT_BATCH)
 
       for (const row of rows) {
-        await write(csvLine([row.submittedAt.toISOString(), ...scope.columns.map((c) => answerText(c, row.answers[c.id]))]))
+        // Answers are stored as plain strings, so a leading = or + stays text and never runs as a formula
+        sheet.addRow([row.submittedAt, ...scope.columns.map((c) => answerText(c, row.answers[c.id]))]).commit()
       }
       if (rows.length < EXPORT_BATCH) break
       const last = rows[rows.length - 1]!
       cursor = { v: last.submittedAt.toISOString(), id: last.id }
     }
-    res.end()
+    sheet.commit()
+    await workbook.commit()
   } catch (error) {
     // The visitor closed the tab, or the database failed part way. Nothing more can be sent.
     console.error(error)

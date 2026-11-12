@@ -7,7 +7,7 @@ A form builder for client work. Drag blocks into place, share a link, and see ex
 - **Build** forms with drag-and-drop blocks, multiple pages and conditional logic
 - **Design** the look: page colour, accent, font, corners and width
 - **Share** a public link, with an optional closing date or a 4-digit code
-- **Collect** answers, including file uploads, in a searchable, filterable table you can export as CSV
+- **Collect** answers, including file uploads, in a searchable, filterable table you can download as an XLSX spreadsheet
 - **Analyse** views, completions and drop-off
 
 ## Project layout

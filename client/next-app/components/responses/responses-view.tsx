@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ResponseFilters } from "@/components/responses/filters"
 import { useApi } from "@/lib/api/http"
-import { exportResponsesCsv, useResponses } from "@/lib/api/responses"
+import { exportResponsesXlsx, useResponses } from "@/lib/api/responses"
 import { activeCount, fieldToBlock, filterFromParam, filterToParam, type ResponseFilter } from "@/lib/responses/filter"
 import type { Block } from "@/lib/schema"
 
@@ -51,7 +51,7 @@ function Page({ children }: { children: React.ReactNode }) {
 }
 
 /* Like a spreadsheet: one row per response, one column per question. The server does the searching, filtering and
-   paging, so what is on screen and what the CSV holds are built the same way. */
+   paging, so what is on screen and what the spreadsheet holds are built the same way. */
 /* Opens the table the way this user left it. A search or filter in the address (a shared link, or a refresh) wins;
    otherwise the last one they used on this form is loaded from the server, so it follows them to any device. */
 export function ResponsesView({ formId, initialQuery = "", initialFilter = "" }: { formId: string; initialQuery?: string; initialFilter?: string }) {
@@ -188,11 +188,11 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
   const narrowed = activeCount(filter) > 0 || search !== ""
   const nothingMatches = rows.length === 0
 
-  async function exportCsv() {
+  async function exportXlsx() {
     setExporting(true)
     try {
       const token = await getToken()
-      const result = await exportResponsesCsv(token, formId, { q: search, filter })
+      const result = await exportResponsesXlsx(token, formId, { q: search, filter })
       if (!result.ok) toast.error(result.message)
     } finally {
       setExporting(false)
@@ -223,9 +223,9 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
             />
           </div>
           <ResponseFilters columns={filterColumns} filter={filter} onChange={setFilter} shown={state.total} />
-          <Button variant="outline" aria-label="Export CSV" title="Export CSV" className="max-lg:w-9 max-lg:px-0" onClick={exportCsv} disabled={exporting}>
+          <Button variant="outline" aria-label="Download XLSX" title="Download XLSX" className="max-lg:w-9 max-lg:px-0" onClick={exportXlsx} disabled={exporting}>
             <DownloadIcon />
-            <span className="max-lg:sr-only">{exporting ? "Exporting…" : "Export CSV"}</span>
+            <span className="max-lg:sr-only">{exporting ? "Preparing…" : "Download XLSX"}</span>
           </Button>
         </div>
       </div>

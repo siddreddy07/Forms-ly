@@ -224,9 +224,9 @@ export function useResponses(formId: string, query: { q: string; filter: Respons
   return { state, retry, remove, loadMore, loadingMore }
 }
 
-/* Downloads the CSV the server builds. Same search and filter as the table, but every page of it.
+/* Downloads the XLSX spreadsheet the server builds. Same search and filter as the table, but every page of it.
    Uses fetch directly (not useApi) because the answer is a file, not JSON. */
-export async function exportResponsesCsv(
+export async function exportResponsesXlsx(
   token: string | null,
   formId: string,
   query: { q: string; filter: ResponseFilter }
@@ -234,17 +234,17 @@ export async function exportResponsesCsv(
   const params = new URLSearchParams({ filter: JSON.stringify(query.filter) })
   if (query.q) params.set("q", query.q)
   try {
-    const res = await fetch(`${API_URL}/forms/${formId}/responses/export.csv?${params.toString()}`, {
+    const res = await fetch(`${API_URL}/forms/${formId}/responses/export.xlsx?${params.toString()}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
-    if (!res.ok) return { ok: false, message: "Couldn't build the CSV. Try again." }
+    if (!res.ok) return { ok: false, message: "Couldn't build the spreadsheet. Try again." }
     const blob = await res.blob()
     const disposition = res.headers.get("content-disposition") ?? ""
-    /* The server names the file after the form's link; add today's date (the user's own day), e.g. my-form-2026-11-11.csv */
-    const base = (/filename="?([^";]+)"?/.exec(disposition)?.[1] ?? formId).replace(/\.csv$/i, "")
+    /* The server names the file after the form's link; add today's date (the user's own day), e.g. my-form-2026-11-11.xlsx */
+    const base = (/filename="?([^";]+)"?/.exec(disposition)?.[1] ?? formId).replace(/\.xlsx$/i, "")
     const now = new Date()
     const day = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`
-    const name = `${base}-${day}.csv`
+    const name = `${base}-${day}.xlsx`
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -253,6 +253,6 @@ export async function exportResponsesCsv(
     URL.revokeObjectURL(url)
     return { ok: true }
   } catch {
-    return { ok: false, message: "Couldn't download the CSV. Check your connection and try again." }
+    return { ok: false, message: "Couldn't download the spreadsheet. Check your connection and try again." }
   }
 }
