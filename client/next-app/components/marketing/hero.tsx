@@ -4,6 +4,7 @@ import { ArrowRightIcon, CheckIcon } from "lucide-react"
 import { motion, MotionConfig } from "motion/react"
 import * as React from "react"
 
+import { ViewDemo } from "@/components/app-shell/view-demo"
 import { StartLink } from "@/components/auth/start-link"
 import { LiveForm } from "@/components/marketing/live-form"
 import { buttonVariants } from "@/components/ui/button"
@@ -96,7 +97,11 @@ function Hero() {
             <p className="text-sm text-muted-foreground">Free to start, no card needed</p>
           </motion.div>
 
-          <h1 className="mx-auto mt-8 flex max-w-5xl flex-wrap justify-center gap-x-[0.22em] font-display text-[clamp(3rem,9vw,8.5rem)] leading-[0.95] font-medium tracking-[-0.045em]">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease, delay: 0.15 }} className="mt-6 flex justify-center">
+            <ViewDemo />
+          </motion.div>
+
+          <h1 className="mx-auto mt-6 flex max-w-5xl flex-wrap justify-center gap-x-[0.22em] font-display text-[clamp(3rem,9vw,8.5rem)] leading-[0.95] font-medium tracking-[-0.045em]">
             {headline.map((word, i) => (
               <span key={word} className="inline-block overflow-hidden pb-[0.12em]">
                 <motion.span
