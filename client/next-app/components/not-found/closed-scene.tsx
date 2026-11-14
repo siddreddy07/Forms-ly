@@ -1,82 +1,76 @@
+"use client"
+
+import * as React from "react"
 import Link from "next/link"
+import gsap from "gsap"
 
 import { StartLink } from "@/components/auth/start-link"
 import { MadeWith } from "@/components/brand/made-with"
-import { WarmGlow } from "@/components/ui/warm-glow"
 import { brand } from "@/lib/brand"
 import { fullDateTime } from "@/lib/time"
 
-/* The page a visitor sees when a form exists but can't be filled in. Same plain background as the 404 page; the form
-   itself sits there with its questions blacked out, and a padlock (or a clock, if it just isn't open yet) on top. */
+/* The page for a form that exists but can't be filled in: closed (time ran out, or it is full), private, or not
+   published. Light rising from the bottom edge, and a huge ghost readout behind the headline: a clock
+   that runs down to 00:00 for a closed form, four dots for a private one, dashes for one that isn't open yet.
+   GSAP runs one arrival and the countdown; with reduced motion the page is simply there. */
 
 type Variant = "private" | "unpublished" | "closed"
 
-const copy: Record<Variant, { title: string; text: string }> = {
-  private: {
-    title: "This form is private",
-    text: "Put in the 4 digit code the owner gave you to open it. If you don't have one, ask them.",
-  },
-  unpublished: {
-    title: "This form isn't open yet",
-    text: "The owner hasn't published it, or has taken it offline. Check back later, or ask them when it opens.",
-  },
-  closed: {
-    title: "This form is closed",
-    text: "It is not taking answers any more.",
-  },
+type Info = {
+  title: string
+  text: string
+  ghost: string
+  rows: { label: string; value: string }[]
 }
 
-/* The form, with every question blacked out. */
-function Sheet() {
-  const bars = ["w-3/5", "w-2/5", "w-1/2"]
-  return (
-    <div
-      aria-hidden="true"
-      className="nf-float w-full max-w-72 rotate-[-3deg] rounded-2xl border border-black/10 bg-[#f5f2ec] p-5 text-[#101012] shadow-[0_30px_50px_rgba(0,0,0,0.25)] dark:shadow-[0_30px_50px_rgba(0,0,0,0.6)] sm:max-w-80 sm:p-6"
-    >
-      <div className="nf-redact h-5 w-3/4 rounded-sm bg-[#101012]" style={{ ["--d" as string]: "0ms" }} />
-      <div className="mt-2 h-2.5 w-1/2 rounded-sm bg-[#101012]/15" />
-      <div className="mt-6 grid gap-5">
-        {bars.map((w, i) => (
-          <div key={w} className="grid gap-2">
-            <div className={`nf-redact h-3 rounded-sm bg-[#101012] ${w}`} style={{ ["--d" as string]: `${(i + 1) * 140}ms` }} />
-            <div className="h-9 rounded-lg border-2 border-[#101012]/20" />
-          </div>
-        ))}
-      </div>
-      <div className="mt-6 flex items-center gap-3">
-        <span className="size-5 rounded-full border-[3px] border-[#3f7bff]" />
-        <span className="size-5 rounded-full border-[3px] border-[#ff3b4d]" />
-        <span className="size-5 rounded-full border-[3px] border-[#2fd08c]" />
-        <div className="ml-auto h-9 w-24 rounded-full bg-[#101012]/85" />
-      </div>
-    </div>
-  )
+function describe(variant: Variant, reason: "date" | "limit" | undefined, when: string): Info {
+  if (variant === "private") {
+    return {
+      title: "This form is private",
+      text: "Put in the 4 digit code the owner gave you to open it. If you don't have one, ask them.",
+      ghost: "••••",
+      rows: [
+        { label: "Status", value: "Private" },
+        { label: "To open it", value: "4 digit code" },
+      ],
+    }
+  }
+  if (variant === "unpublished") {
+    return {
+      title: "This form isn't open yet",
+      text: "The owner hasn't published it, or has taken it offline. Check back later, or ask them when it opens.",
+      ghost: "--:--",
+      rows: [
+        { label: "Status", value: "Not open" },
+        { label: "Reason", value: "Not published" },
+      ],
+    }
+  }
+  if (reason === "limit") {
+    return {
+      title: "This form is full",
+      text: "It has reached the most responses it can take, so it is not taking answers any more.",
+      ghost: "00:00",
+      rows: [
+        { label: "Status", value: "Closed" },
+        { label: "Reason", value: "Response limit reached" },
+      ],
+    }
+  }
+  return {
+    title: "This form has closed",
+    text: when ? `It stopped taking answers on ${when}.` : "It is not taking answers any more.",
+    ghost: "00:00",
+    rows: [
+      { label: "Status", value: "Closed" },
+      ...(when ? [{ label: "Closed on", value: when }] : []),
+      { label: "Reason", value: "Closing time reached" },
+    ],
+  }
 }
 
-function Padlock() {
-  return (
-    <svg viewBox="0 0 120 150" aria-hidden="true" className="absolute -bottom-6 -right-2 w-32 drop-shadow-[0_18px_22px_rgba(0,0,0,0.55)] sm:-right-6 sm:w-40">
-      <path className="nf-shackle" d="M32 66V44a28 28 0 0 1 56 0v22" fill="none" stroke="#9a98a0" strokeWidth="13" strokeLinecap="round" />
-      <rect x="10" y="62" width="100" height="80" rx="18" fill="#ffb000" />
-      <rect x="10" y="62" width="100" height="80" rx="18" fill="none" stroke="rgba(0,0,0,0.25)" strokeWidth="2" />
-      <circle cx="60" cy="96" r="9" fill="#101012" />
-      <path d="M56 100h8l3 22H53Z" fill="#101012" />
-    </svg>
-  )
-}
-
-function Clock() {
-  return (
-    <svg viewBox="0 0 120 120" aria-hidden="true" className="absolute -bottom-6 -right-2 w-32 drop-shadow-[0_18px_22px_rgba(0,0,0,0.55)] sm:-right-6 sm:w-40">
-      <circle cx="60" cy="60" r="52" fill="#3f7bff" />
-      <circle cx="60" cy="60" r="40" fill="#f5f2ec" />
-      <path className="nf-hand" d="M60 60V30" stroke="#101012" strokeWidth="7" strokeLinecap="round" />
-      <path d="M60 60 82 68" stroke="#101012" strokeWidth="7" strokeLinecap="round" />
-      <circle cx="60" cy="60" r="5" fill="#ff3b4d" />
-    </svg>
-  )
-}
+const pill =
+  "inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-full px-5 text-sm font-medium outline-none transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
 export function ClosedScene({
   variant,
@@ -90,51 +84,119 @@ export function ClosedScene({
   closesAt?: string | null
   children?: React.ReactNode
 }) {
-  const { title } = copy[variant]
-  const when = closesAt ? fullDateTime(closesAt) : ""
-  const text =
-    variant !== "closed"
-      ? copy[variant].text
-      : reason === "limit"
-        ? "It has reached the most responses it can take."
-        : when
-          ? `It stopped taking answers on ${when}.`
-          : copy.closed.text
-  return (
-    <div className="relative isolate min-h-svh overflow-hidden bg-background text-foreground">
-      <WarmGlow />
+  const info = describe(variant, reason, closesAt ? fullDateTime(closesAt) : "")
+  const root = React.useRef<HTMLDivElement>(null)
+  const ghost = React.useRef<HTMLDivElement>(null)
 
-      <div className="mx-auto flex min-h-svh max-w-5xl flex-col px-5 py-6 sm:px-8">
+  React.useLayoutEffect(() => {
+    const el = root.current
+    if (!el) return
+    const mm = gsap.matchMedia()
+    const ctx = gsap.context(() => {
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        const tl = gsap.timeline({ defaults: { ease: "power3.out" } })
+        tl.from("[data-ghost]", { opacity: 0, scale: 1.06, duration: 1.4 })
+          .from("[data-head]", { yPercent: 110, duration: 1, stagger: 0.1 }, 0.1)
+          .from("[data-meta] > *", { y: 14, opacity: 0, duration: 0.6, stagger: 0.08 }, 0.5)
+          .from("[data-rule]", { scaleX: 0, duration: 1, ease: "power3.inOut" }, 0.6)
+          .from("[data-low]", { y: 16, opacity: 0, duration: 0.7, stagger: 0.08 }, 0.9)
+
+        /* The closed clock runs down to zero and stays there. */
+        if (variant === "closed" && ghost.current) {
+          const node = ghost.current
+          const clock = { s: 9 }
+          node.textContent = "00:09"
+          tl.to(
+            clock,
+            {
+              s: 0,
+              duration: 2.2,
+              ease: "none",
+              onUpdate: () => {
+                node.textContent = `00:0${Math.ceil(clock.s)}`
+              },
+              onComplete: () => {
+                node.textContent = "00:00"
+              },
+            },
+            0.5
+          )
+        }
+      })
+    }, el)
+    return () => {
+      mm.revert()
+      ctx.revert()
+    }
+  }, [variant])
+
+  return (
+    <div ref={root} className="relative isolate min-h-svh overflow-hidden bg-background text-foreground">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div className="scene-floor absolute inset-0" />
+        <div className="scene-grain absolute inset-0" />
+      </div>
+
+      <div className="mx-auto flex min-h-svh max-w-6xl flex-col px-5 py-6 sm:px-8">
         <header>
-          <Link href="/" className="inline-block rounded-md font-display text-lg font-medium tracking-tight outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring">
+          <Link
+            href="/"
+            className="inline-block rounded-md font-display text-lg font-medium tracking-tight outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+          >
             {brand.name}
           </Link>
         </header>
 
-        <main className="grid flex-1 items-center gap-12 py-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-8">
-          <div className="grid max-w-md gap-4 max-lg:order-2">
-            <h1 className="font-display text-4xl font-medium tracking-tight sm:text-5xl">{title}</h1>
-            <p className="text-base leading-relaxed text-muted-foreground">{text}</p>
-            {children}
-            <div className="flex flex-wrap gap-2.5 pt-2">
+        <main className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-4 py-3 lg:justify-end lg:gap-8 lg:max-w-none lg:pb-8 lg:pt-16">
+          <div data-ghost className="text-center lg:pointer-events-none lg:absolute lg:inset-x-0 lg:top-[34%] lg:-z-10 lg:-translate-y-1/2">
+            <div
+              ref={ghost}
+              aria-hidden="true"
+              className="scene-gradient-text select-none whitespace-nowrap font-display text-[clamp(4rem,min(22vw,13svh),22rem)] font-semibold leading-none tracking-tighter opacity-[0.28] lg:text-[clamp(5.5rem,min(27vw,32svh),22rem)] lg:opacity-[0.2] dark:opacity-[0.2] dark:lg:opacity-[0.16]"
+            >
+              {info.ghost}
+            </div>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end lg:gap-12">
+            <h1 className="mx-auto flex max-w-[14ch] flex-wrap justify-center gap-x-[0.22em] text-center font-display text-[clamp(2.25rem,min(9vw,10svh),6.5rem)] font-medium leading-[0.95] tracking-tight lg:mx-0 lg:justify-start lg:text-left lg:text-[clamp(2.75rem,min(8.5vw,14svh),6.5rem)]">
+              {info.title.split(" ").map((w, i) => (
+                <span key={i} className="inline-block overflow-hidden pb-[0.12em] align-bottom">
+                  <span data-head className="inline-block">
+                    {w}
+                  </span>
+                </span>
+              ))}
+            </h1>
+
+            <dl data-meta className="grid divide-y divide-foreground/10 overflow-hidden rounded-2xl border border-foreground/10 bg-card/70 text-sm lg:min-w-56 lg:divide-y-0 lg:gap-4 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+              {info.rows.map((r) => (
+                <div key={r.label} className="flex items-baseline justify-between gap-4 px-4 py-2.5 lg:grid lg:gap-0.5 lg:p-0">
+                  <dt className="text-muted-foreground">{r.label}</dt>
+                  <dd className="text-right font-medium lg:text-left">{r.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <span data-rule className="scene-gradient h-px w-full origin-left opacity-80 max-lg:hidden" />
+
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,26rem)_1fr] lg:gap-12">
+            <div data-low className="grid content-start justify-items-center gap-3 lg:justify-items-start lg:gap-4">
+              <p className={`text-center text-base leading-relaxed text-muted-foreground lg:text-left ${variant === "closed" ? "max-lg:hidden" : ""}`}>{info.text}</p>
+              {children}
+            </div>
+            <div data-low className="grid w-full content-start gap-2.5 sm:grid-cols-2 lg:flex lg:flex-wrap lg:justify-end">
               <StartLink
-                className="inline-flex min-h-11 items-center rounded-full bg-foreground px-5 text-sm font-medium text-background outline-none transition-colors hover:bg-foreground/85 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                className={`${pill} scene-gradient text-[#1a1208] shadow-[0_8px_24px_-8px_rgba(255,122,24,0.7)] hover:brightness-105`}
                 signedInChildren="Go to your forms"
               >
                 Make your own form
               </StartLink>
-              <Link
-                href="/"
-                className="inline-flex min-h-11 items-center rounded-full border border-foreground/15 px-5 text-sm font-medium outline-none transition-colors hover:bg-foreground/8 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-              >
+              <Link href="/" className={`${pill} border border-foreground/15 hover:bg-foreground/8`}>
                 Go home
               </Link>
             </div>
-          </div>
-
-          <div className="relative mx-auto flex w-full max-w-sm justify-center pb-8 max-lg:order-1">
-            <Sheet />
-            {variant === "private" ? <Padlock /> : <Clock />}
           </div>
         </main>
 

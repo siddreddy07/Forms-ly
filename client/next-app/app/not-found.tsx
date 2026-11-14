@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: "Page not found" }
 
 /* Any address that doesn't exist. */
 export default function NotFound() {
-  return <NotFoundScene title="Page not found" text="That address doesn't lead anywhere. Pick a button to get back." />
+  return <NotFoundScene title="Page not found" text="Check the address for typos, or head back home." />
 }

@@ -340,41 +340,23 @@
   [data-sonner-toast].cn-toast[data-mounted="true"][data-styled="true"] { animation: none; }
 }
 
-/* ---------- 404 page (components/not-found/not-found-scene.tsx) ---------- */
-/* The three rings drop in one after another when the page opens. That is the page's one moment of motion. */
-@keyframes nf-drop {
-  0% { transform: translateY(-160%) scale(0.92); opacity: 0; }
-  55% { transform: translateY(7%); opacity: 1; }
-  78% { transform: translateY(-3%); }
-  100% { transform: none; opacity: 1; }
+/* ---------- 404 and form-closed pages (components/not-found/*) ---------- */
+/* Film grain over the soft colour, so the gradients look printed rather than flat. */
+.scene-grain {
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .6 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  opacity: 0.2;
 }
-/* The controller hovers, barely. */
-@keyframes nf-float {
-  0%, 100% { transform: translateY(0) rotate(-0.4deg); }
-  50% { transform: translateY(-8px) rotate(0.4deg); }
+.dark .scene-grain { filter: invert(1); opacity: 0.1; }
+/* Light rising from the bottom edge, in the brand's orange and yellow. */
+.scene-floor {
+  background: radial-gradient(ellipse 70% 100% at 50% 110%,
+    color-mix(in oklab, #ffb000 55%, transparent) 0%,
+    color-mix(in oklab, #ff7a18 28%, transparent) 40%,
+    transparent 75%);
 }
-.nf-drop { animation: nf-drop 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--d, 0ms); }
-.nf-float { animation: nf-float 7s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .nf-drop, .nf-float, .nf-redact, .nf-shackle, .nf-hand { animation: none; }
-}
-
-/* ---------- Private / not-open page (components/not-found/closed-scene.tsx) ---------- */
-/* The black bars wipe across each question once, then the padlock snaps shut. */
-@keyframes nf-redact {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0 0 0 0); }
-}
-@keyframes nf-shackle {
-  0% { transform: translateY(-14px); }
-  60% { transform: translateY(-14px); }
-  80% { transform: translateY(2px); }
-  100% { transform: none; }
-}
-@keyframes nf-hand { to { transform: rotate(360deg); } }
-.nf-redact { animation: nf-redact 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--d, 0ms) + 250ms); }
-.nf-shackle { animation: nf-shackle 1.4s ease-out 0.9s both; }
-.nf-hand { transform-origin: 60px 60px; animation: nf-hand 24s linear infinite; }
+.dark .scene-floor { opacity: 0.6; }
+.scene-gradient { background: linear-gradient(100deg, #ff6a13 0%, #ffa000 55%, #ffd23f 100%); }
+.scene-gradient-text { background: linear-gradient(100deg, #ff6a13 0%, #ffa000 55%, #ffd23f 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
 /* ---------- Warm touches (components/ui/warm-glow.tsx) ---------- */
 /* A haze of warm light along the top edge, fading out downward. No hard shapes. */

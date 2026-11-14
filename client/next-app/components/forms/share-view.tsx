@@ -15,6 +15,7 @@ import { readDraft } from "@/lib/builder/draft"
 import { timeAgo } from "@/lib/time"
 import { cn } from "@/lib/utils"
 import { useOrigin } from "@/lib/use-origin"
+import { Label } from "../ui/label"
 
 /* Copies text and shows "Copied" for a moment, so the click visibly did something. */
 function useCopy(value: string) {
@@ -205,12 +206,17 @@ export function ShareView({ formId }: { formId: string }) {
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", expired ? "bg-red-500" : isPublic ? "bg-emerald-500" : "bg-amber-500")} />
-              <h2 className="font-display text-base font-medium tracking-tight sm:text-lg">{expired ? "Not live" : isPublic ? "Live" : "Private"}</h2>
-              {info.publishedAt && (
-                <span className="truncate text-xs text-muted-foreground sm:text-sm" title={dateTime(info.publishedAt)}>
-                  · published {timeAgo(info.publishedAt)}
-                </span>
-              )}
+
+              <div className="min-w-0">
+                <p className="font-display text-base font-medium tracking-tight sm:text-lg">
+                  {expired ? "Not live" : isPublic ? "Live" : "Private"}
+                </p>
+                {expired && settings.closeAt ? (
+                  <p className="text-xs text-muted-foreground sm:text-sm">Expired on {dateTime(settings.closeAt)}</p>
+                ) : isPublic && info.publishedAt ? (
+                  <p className="text-xs text-muted-foreground sm:text-sm">Published {timeAgo(info.publishedAt)}</p>
+                ) : null}
+              </div>
             </div>
             <Link href={`/preview/${formId}`} target="_blank" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "shrink-0 max-sm:text-xs")}>
               <EyeIcon data-icon="inline-start" />
