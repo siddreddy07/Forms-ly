@@ -192,17 +192,20 @@ export function ShareView({ formId }: { formId: string }) {
     { id: "private", title: "Private", Icon: LockIcon },
   ] as const
   const working = busy === "publish" || busy === "unpublish"
+  /* A form past its closing time is no longer taking answers, whatever its access setting. */
+  const expired = !!settings.closeAt && new Date(settings.closeAt).getTime() <= Date.now()
 
   /* One narrow column that fits a phone as it is: status, link, who can fill it in, embed, unpublish. */
   return (
     <div className="mx-auto w-full max-w-2xl min-w-0 overflow-x-clip px-2 py-2 sm:px-6 sm:py-8">
+      <PendingLock pending={working} className="rounded-xl">
       <div className="min-w-0 divide-y rounded-xl border bg-card [&>section]:min-w-0">
         {/* Status, and the one thing that needs doing when there are changes. */}
         <section className="grid grid-cols-[minmax(0,1fr)] gap-2 p-2.5 sm:gap-2.5 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
-              <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", isPublic ? "bg-emerald-500" : "bg-amber-500")} />
-              <h2 className="font-display text-base font-medium tracking-tight sm:text-lg">{isPublic ? "Live" : "Private"}</h2>
+              <span aria-hidden="true" className={cn("size-2.5 shrink-0 rounded-full", expired ? "bg-red-500" : isPublic ? "bg-emerald-500" : "bg-amber-500")} />
+              <h2 className="font-display text-base font-medium tracking-tight sm:text-lg">{expired ? "Not live" : isPublic ? "Live" : "Private"}</h2>
               {info.publishedAt && (
                 <span className="truncate text-xs text-muted-foreground sm:text-sm" title={dateTime(info.publishedAt)}>
                   · published {timeAgo(info.publishedAt)}
@@ -326,6 +329,7 @@ export function ShareView({ formId }: { formId: string }) {
           </PendingLock>
         </section>
       </div>
+      </PendingLock>
     </div>
   )
 }
