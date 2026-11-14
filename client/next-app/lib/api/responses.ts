@@ -187,36 +187,25 @@ export function useResponses(formId: string, query: { q: string; filter: Respons
     }
   }, [api, pagePath, state, loadingMore])
 
-  /* Takes the row out straight away and puts it back if the server says no. */
+  /* Asks the server first; the row only leaves the table once the server has deleted it. */
   const remove = React.useCallback(
     async (id: string) => {
-      let removed: StoredResponse | undefined
-      setState((s) => {
-        if (s.status !== "ready") return s
-        removed = s.items.find((r) => r.id === id)
-        return {
-          ...s,
-          items: s.items.filter((r) => r.id !== id),
-          total: Math.max(0, s.total - 1),
-          allTotal: Math.max(0, s.allTotal - 1),
-        }
-      })
       try {
         await api(`/forms/${formId}/responses/${id}`, { method: "DELETE" })
-        return true
       } catch {
-        setState((s) =>
-          s.status === "ready" && removed
-            ? {
-                ...s,
-                items: [...s.items, removed].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
-                total: s.total + 1,
-                allTotal: s.allTotal + 1,
-              }
-            : s
-        )
         return false
       }
+      setState((s) =>
+        s.status === "ready"
+          ? {
+              ...s,
+              items: s.items.filter((r) => r.id !== id),
+              total: Math.max(0, s.total - 1),
+              allTotal: Math.max(0, s.allTotal - 1),
+            }
+          : s
+      )
+      return true
     },
     [api, formId]
   )

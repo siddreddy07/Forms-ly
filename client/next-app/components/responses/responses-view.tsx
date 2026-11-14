@@ -6,6 +6,7 @@ import * as React from "react"
 import { useAuth } from "@clerk/nextjs"
 import { DownloadIcon, InboxIcon, PaperclipIcon, SearchIcon } from "lucide-react"
 import { Trash2 } from "@/components/animate-ui/icons/trash-2"
+import { LoaderCircle } from "@/components/animate-ui/icons/loader-circle"
 import { toast } from "sonner"
 
 import { answerText } from "@/components/responses/format"
@@ -85,6 +86,7 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
   const [exporting, setExporting] = React.useState(false)
   const { getToken } = useAuth()
   const { state, retry, remove, loadMore, loadingMore } = useResponses(formId, { q: search, filter })
+  const [deleting, setDeleting] = React.useState<string | null>(null)
 
   /* Wait for a pause in typing before asking the server, so every letter is not a request. */
   React.useEffect(() => {
@@ -249,7 +251,7 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
           </TableHeader>
           <TableBody>
             {rows.map(({ r, number, cells }) => (
-              <TableRow key={r.id}>
+              <TableRow key={r.id} aria-busy={deleting === r.id} className={deleting === r.id ? "pointer-events-none opacity-50" : undefined}>
                 <TableCell className="px-2.5 py-1.5 text-xs tabular-nums text-muted-foreground sm:px-4 sm:py-3">{number}</TableCell>
                 <TableCell className="px-2.5 py-1.5 text-xs whitespace-nowrap text-muted-foreground sm:px-4 sm:py-3 sm:text-sm">{when(r.submittedAt)}</TableCell>
                 {cells.map((text, ci) => (
@@ -258,7 +260,17 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
                   </TableCell>
                 ))}
                 <TableCell className="px-1.5 py-1 text-right sm:px-4 sm:py-2">
-                  <DeleteButton onDelete={() => remove(r.id)} />
+                  <DeleteButton
+                    pending={deleting === r.id}
+                    disabled={deleting !== null}
+                    onDelete={async () => {
+                      setDeleting(r.id)
+                      const ok = await remove(r.id)
+                      setDeleting(null)
+                      if (ok) toast.success("Response deleted.")
+                      else toast.error("Couldn't delete the response")
+                    }}
+                  />
                 </TableCell>
               </TableRow>
             ))}
@@ -293,19 +305,17 @@ function ResponsesTable({ formId, initialQuery, initialFilter }: { formId: strin
   )
 }
 
-function DeleteButton({ onDelete }: { onDelete: () => Promise<boolean> }) {
+function DeleteButton({ onDelete, pending, disabled }: { onDelete: () => void; pending: boolean; disabled: boolean }) {
   return (
     <Button
       variant="ghost"
       size="icon-sm"
       aria-label="Delete this response"
       className="text-muted-foreground hover:text-destructive"
-      onClick={async () => {
-        if (await onDelete()) toast("Response deleted")
-        else toast.error("Couldn't delete the response")
-      }}
+      disabled={disabled}
+      onClick={onDelete}
     >
-      <Trash2 animateOnHover size={16} className="size-4" />
+      {pending ? <LoaderCircle animate size={16} className="size-4" aria-hidden="true" /> : <Trash2 animateOnHover size={16} className="size-4" />}
     </Button>
   )
 }
