@@ -87,7 +87,7 @@ function Bars({ bars, vertical }: { bars: { label: string; count: number }[]; ve
   )
 }
 
-/* Choice, rating and number questions get their own small chart. Text-like questions only appear in the completion list. */
+/* Choice, rating and number questions get their own small chart. */
 function QuestionCard({ q, total }: { q: Exclude<Question, { kind: "other" }>; total: number }) {
   return (
     <Card className="grid content-start gap-2 sm:gap-3">
@@ -120,31 +120,6 @@ function QuestionCard({ q, total }: { q: Exclude<Question, { kind: "other" }>; t
           ))}
         </dl>
       )}
-    </Card>
-  )
-}
-
-/* How many people answered each question, as a share of everyone. Shows where people stop or skip. */
-function Completion({ questions, total }: { questions: Question[]; total: number }) {
-  const bars = questions.map((q) => ({ label: q.label || "Untitled question", count: total ? Math.round((q.answered / total) * 100) : 0 }))
-  if (bars.length === 0) return null
-  return (
-    <Card title="Answered, by question (%)">
-      <ChartContainer config={countConfig} className="aspect-auto w-full" style={{ height: bars.length * 30 + 10 }}>
-        <BarChart data={bars} layout="vertical" margin={{ left: 0, right: 16 }}>
-          <YAxis
-            dataKey="label"
-            type="category"
-            width={100}
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={(v: string) => (v.length > 18 ? `${v.slice(0, 17)}…` : v)}
-          />
-          <XAxis type="number" domain={[0, 100]} hide />
-          <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel formatter={(v) => `${v}%`} />} />
-          <Bar dataKey="count" fill="var(--color-count)" radius={4} barSize={14} />
-        </BarChart>
-      </ChartContainer>
     </Card>
   )
 }
@@ -217,8 +192,6 @@ export function AnalyticsView({ formId }: { formId: string }) {
           <Card title="Responses per day">
             <OverTime data={a.series} />
           </Card>
-
-          <Completion questions={a.questions} total={a.inRange} />
 
           {charted.length > 0 && (
             <div className="grid gap-2.5 sm:gap-4 md:grid-cols-2">
