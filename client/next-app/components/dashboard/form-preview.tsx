@@ -19,7 +19,7 @@ function shapeFor(type: string, options: string[]) {
   }
   if (options.length > 0) {
     return (
-      <div className="grid gap-0.5">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
         {options.slice(0, 2).map((o, i) => (
           <div key={i} className="flex items-center gap-1 text-[0.45rem] leading-none text-muted-foreground">
             <span className="size-1.5 shrink-0 rounded-full border bg-background" />
@@ -49,7 +49,7 @@ function FormPreview({ preview }: { preview?: Preview }) {
       style={{ backgroundImage: tint }}
       aria-hidden="true"
     >
-      <div className="grid gap-1.5 rounded-t-md border border-b-0 bg-card p-2 shadow-sm">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-1.5 rounded-t-md border border-b-0 bg-card p-2 shadow-sm">
         <p className="truncate text-[0.6rem] leading-tight font-semibold text-card-foreground">{preview?.title || "Untitled form"}</p>
         {blocks.length === 0 ? (
           <>
@@ -58,7 +58,7 @@ function FormPreview({ preview }: { preview?: Preview }) {
           </>
         ) : (
           blocks.map((b) => (
-            <div key={b.id} className="grid gap-0.5">
+            <div key={b.id} className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-0.5">
               {b.label ? (
                 <p className="truncate text-[0.5rem] leading-none font-medium text-muted-foreground">{b.label}</p>
               ) : b.type === "heading" && b.content ? (
