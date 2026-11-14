@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { XIcon } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { CalendarDatePicker } from "@/components/ui/calendar-date-picker"
@@ -12,7 +14,7 @@ type TimeParts = { hour: string; minute: string; period: string }
 
 /* A new date starts at the end of that day; the wheel can move it earlier. */
 const DEFAULT_TIME: TimeParts = { hour: "11", minute: "59", period: "pm" }
-const MIN_LEAD_MS = 60 * 60 * 1000
+const MIN_LEAD_MS = 15 * 60 * 1000
 
 /* Explicit 1–12 and 00–59 values, so the label the wheel shows is the value we save. */
 const TIME_COLUMNS: WheelColumn[] = [
@@ -63,7 +65,7 @@ function combine(day: Date, time: TimeParts) {
   return at
 }
 
-/* A closing time has to be at least an hour away, so nobody can close a form on someone mid-answer. */
+/* A closing time has to be at least 15 minutes away, so nobody can close a form on someone mid-answer. */
 function tooSoon(at: Date) {
   return at.getTime() < Date.now() + MIN_LEAD_MS
 }
@@ -71,12 +73,20 @@ function tooSoon(at: Date) {
 /* The Settings tab's closing date and time. Edits stay local until Save is pressed; publishing is what makes the
    saved time live. */
 export function CloseAtPicker() {
-  const { settings, setSettings } = useFormGate()
+  const { form, settings, setSettings } = useFormGate()
+  const router = useRouter()
   const [date, setDate] = React.useState<Date | undefined>(() =>
     settings.closeAt ? new Date(settings.closeAt) : undefined
   )
   const [time, setTime] = React.useState<TimeParts>(() => timeParts(settings.closeAt))
   const [status, setStatus] = React.useState<"idle" | "saving" | "saved" | "error">("idle")
+
+  /* Follow the saved time if it changes underneath us (loaded late, or saved). */
+  const savedIso = settings.closeAt
+  React.useEffect(() => {
+    setDate(savedIso ? new Date(savedIso) : undefined)
+    setTime(timeParts(savedIso))
+  }, [savedIso])
 
   /* The calendar can't go before today, and the wheel is checked against the one-hour minimum. */
   const minDate = React.useMemo(() => {
@@ -85,11 +95,21 @@ export function CloseAtPicker() {
     return day
   }, [])
 
+  /* Re-render every few seconds so the 15 minute check keeps up with the clock while the page sits open. */
+  const [, setTick] = React.useState(0)
+  React.useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), 5000)
+    return () => clearInterval(t)
+  }, [])
+
   const draftAt = date ? combine(date, time) : null
   const savedAt = settings.closeAt ? new Date(settings.closeAt) : null
-  const dirty =
-    draftAt && savedAt ? Math.abs(draftAt.getTime() - savedAt.getTime()) >= 60_000 : draftAt !== savedAt
-  const error = dirty && draftAt && tooSoon(draftAt) ? "Pick a time at least 1 hour from now." : null
+  /* Compared to the minute, the way the wheel works, so picking the saved time again is not a change. */
+  const minute = (d: Date) => Math.floor(d.getTime() / 60_000)
+  const dirty = draftAt && savedAt ? minute(draftAt) !== minute(savedAt) : !!draftAt !== !!savedAt
+  const error = dirty && draftAt && tooSoon(draftAt) ? "Pick a time at least 15 minutes from now." : null
+  /* Save needs both: the time differs from the stored one, and it is at least 15 minutes from the current time. */
+  const canSave = dirty && !error
 
   function pickDate(next: Date | undefined) {
     if (!next) {
@@ -115,10 +135,20 @@ export function CloseAtPicker() {
   }
 
   async function save() {
-    if (draftAt && tooSoon(draftAt)) return
+    if (!canSave || status === "saving") return
     setStatus("saving")
     const ok = await setSettings({ ...settings, closeAt: draftAt ? draftAt.toISOString() : null })
     setStatus(ok ? "saved" : "error")
+    if (!ok) return
+    toast.success(draftAt ? "Closing time updated." : "Closing time removed.", {
+      action: { label: "Go live", onClick: () => router.push(`/forms/${form.id}/share`) },
+      duration: 8000,
+      classNames: {
+        toast: "cn-toast !min-h-0 !gap-2 !py-1.5 !pr-1.5 !pl-3 !text-xs",
+        title: "!text-xs !leading-tight",
+        actionButton: "toast-pill-action",
+      },
+    })
   }
 
   return (
@@ -148,7 +178,7 @@ export function CloseAtPicker() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={save} disabled={!dirty || status === "saving" || !!error}>
+        <Button size="sm" onClick={save} disabled={!canSave || status === "saving"}>
           {status === "saving" ? "Saving…" : "Save"}
         </Button>
         {error ? (
@@ -158,7 +188,9 @@ export function CloseAtPicker() {
         ) : status === "saved" ? (
           <p className="text-xs text-muted-foreground">Saved</p>
         ) : dirty ? (
-          <p className="text-xs text-muted-foreground">Unsaved change</p>
+          <p className="text-xs text-muted-foreground">
+            Unsaved change{draftAt ? ` · closes ${draftAt.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })}` : ""}
+          </p>
         ) : null}
       </div>
     </div>

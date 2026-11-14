@@ -426,6 +426,12 @@ router.patch("/:id", saveLimiter, async (req, res) => {
     res.status(404).json({ error: "Form not found" })
     return
   }
+  /* A new closing time has to be at least 15 minutes away. Re-sending the one already saved is fine. */
+  const newClose = body.data.settings?.closeAt
+  if (newClose && newClose !== settingsOf(form).closeAt && new Date(newClose).getTime() < Date.now() + 15 * 60 * 1000) {
+    res.status(400).json({ error: "Closing time must be at least 15 minutes from now" })
+    return
+  }
   // Every switch to private makes a new code (so an old one stops working); going public clears it.
   const { useAI, settings, ...rest } = body.data
   const changes: Partial<typeof forms.$inferInsert> = { ...rest }
