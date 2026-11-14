@@ -20,7 +20,7 @@ const deviceNow = () => (window.innerWidth < 640 ? "phone" : window.innerWidth <
 
 /* The live form people fill in. It gets the published copy and its design from the server (see app/f/[slug]).
    Answers go to the backend, which checks them against the published copy before saving. */
-export function PublicForm({ slug, doc, design, code }: { slug: string; doc: FormDocument; design: FormDesign; version: number; code?: string }) {
+export function PublicForm({ slug, doc, design, version, code }: { slug: string; doc: FormDocument; design: FormDesign; version: number; code?: string }) {
   const openedAt = React.useRef<number | null>(null)
   React.useEffect(() => {
     openedAt.current = Date.now()
@@ -32,6 +32,7 @@ export function PublicForm({ slug, doc, design, code }: { slug: string; doc: For
     <UploadProvider value={upload}>
     <FormRenderer
       form={doc}
+      persistKey={`form-draft:${slug}:v${version}`}
       thankYou={thankYouFor(design, { redirect: true })}
       onSubmit={async (answers) => {
         const res = await submitResponse(slug, {

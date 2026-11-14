@@ -11,6 +11,7 @@ import {
   validateBlocks,
   type Answers,
   type AnswerValue,
+  type FileAnswer,
   type FormDocument,
   type FormMode,
 } from "@/lib/schema"
@@ -30,6 +31,45 @@ type Props = {
   showEmptyBanner?: boolean
   /* Public form only: a short line under the header, such as when the form closes. */
   notice?: React.ReactNode
+  /* Public form only: keeps what the person has filled in (and uploaded) in this browser until they submit. */
+  persistKey?: string
+}
+
+type Saved = { answers: Answers; index: number }
+
+const isFileList = (v: AnswerValue): v is FileAnswer[] => Array.isArray(v) && v.some((x) => typeof x === "object" && x !== null)
+
+/* Files still uploading cannot be kept (the upload stops with the page). Finished ones keep their fileId. */
+function forStorage(answers: Answers): Answers {
+  const out: Answers = {}
+  for (const [id, value] of Object.entries(answers)) {
+    if (isFileList(value)) {
+      const done = value.filter((f) => !f.uploading && f.fileId)
+      if (done.length > 0) out[id] = done
+    } else if (value !== undefined && value !== null && value !== "") {
+      out[id] = value
+    }
+  }
+  return out
+}
+
+function readSaved(key: string, form: FormDocument): Saved | null {
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Saved
+    if (!parsed || typeof parsed.answers !== "object") return null
+    const known = new Set(form.steps.flatMap((s) => s.blocks.map((b) => b.id)))
+    const answers: Answers = {}
+    for (const [id, value] of Object.entries(parsed.answers)) {
+      if (!known.has(id)) continue
+      /* The preview address from the old page is gone; give each restored file its own key. */
+      answers[id] = isFileList(value) ? value.map((f) => ({ ...f, url: `saved:${f.fileId}` })) : value
+    }
+    return { answers, index: Number.isInteger(parsed.index) && parsed.index > 0 ? parsed.index : 0 }
+  } catch {
+    return null
+  }
 }
 
 function FormRenderer({
@@ -42,6 +82,7 @@ function FormRenderer({
   showEmptyBanner,
   forceThankYou,
   notice,
+  persistKey,
 }: Props) {
   const [answers, setAnswers] = React.useState<Answers>({})
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -51,6 +92,28 @@ function FormRenderer({
   const [closeBlocked, setCloseBlocked] = React.useState(false)
   const [submitError, setSubmitError] = React.useState<string | null>(null)
   const root = React.useRef<HTMLFormElement>(null)
+  /* Saving waits until what was kept has been loaded back, so an empty form never overwrites it. */
+  const [restored, setRestored] = React.useState(!persistKey)
+
+  React.useEffect(() => {
+    if (!persistKey) return
+    const saved = readSaved(persistKey, form)
+    if (saved) {
+      setAnswers(saved.answers)
+      setIndex(saved.index)
+    }
+    setRestored(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistKey])
+
+  React.useEffect(() => {
+    if (!persistKey || !restored || done) return
+    try {
+      window.localStorage.setItem(persistKey, JSON.stringify({ answers: forStorage(answers), index }))
+    } catch {
+      /* storage full or blocked: the form still works, it just won't survive a reload */
+    }
+  }, [persistKey, restored, done, answers, index])
 
   const effectiveMode = mode ?? form.mode
   const screens = buildScreens(form, answers, effectiveMode)
@@ -117,6 +180,13 @@ function FormRenderer({
     setSubmitError(null)
     try {
       await onSubmit?.(all.data)
+      if (persistKey) {
+        try {
+          window.localStorage.removeItem(persistKey)
+        } catch {
+          /* nothing to clear */
+        }
+      }
       setDone(true)
     } catch (err) {
       setSubmitError(err instanceof Error && err.message ? err.message : "Couldn't send your answers. Try again.")
